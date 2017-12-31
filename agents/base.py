@@ -25,3 +25,4 @@ class AgentBase:
         else:
             return self.model.predict(Variable(observation, volatile=True)).data.max(1).cpu()
         
+        
