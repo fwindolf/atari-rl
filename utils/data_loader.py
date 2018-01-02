@@ -99,8 +99,3 @@ class AtariGrandChallengeDataset(Dataset):
             sample = self.transform(sample)
         
         return sample
-    
-    
-    
-    
-    
