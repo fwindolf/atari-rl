@@ -13,6 +13,7 @@ class AtariGrandChallengeDataset(Dataset):
     www.atarigrandchallenge.com/data
     
     Uses lazy loading of screens
+    Possibly (re)using memmaps would be more efficient
     """
     
     def __init__(self, root_dir, game, transform=None, max_files=None):
@@ -29,8 +30,45 @@ class AtariGrandChallengeDataset(Dataset):
         
         self.__load_trajectories(max_files)
         
-    def __load_trajectories(self, max_files):
+    def split(self, train, valid):
+        """
+        Split the dataset into training, validation and test data
         
+        train (int): Percentage of training data
+        valid (int): Percentage of validation data
+        """
+        assert(train + valid < 1)
+        
+        indices = np.random.permutation(len(self))
+        num_train = int(train * len(self))
+        num_valid = int(valid * len(self))
+        idx_train = indices[:num_train]
+        idx_valid = indices[num_train:num_train + num_valid]
+        idx_test = indices[num_train + num_valid:]
+      
+        # make new datasets out of the splits
+        ds_train = AtariGrandChallengeDataset(self.root_dir, self.game, self.transform, 0)
+        ds_train.data = self.data[idx_train]
+        ds_train.traj = self.traj
+        
+        ds_valid = AtariGrandChallengeDataset(self.root_dir, self.game, self.transform, 0)
+        ds_valid.data = self.data[idx_valid]
+        ds_valid.traj = self.traj
+        
+        ds_test = AtariGrandChallengeDataset(self.root_dir, self.game, self.transform, 0)
+        ds_test.data = self.data[idx_test]
+        ds_test.traj = self.traj
+        
+        return ds_train, ds_valid, ds_test
+    
+        
+        
+    def __load_trajectories(self, max_files):
+        """
+        Load the trajectories from disk
+        Trajectories are organized in .txt files that contain associated frames, rewards, ... in
+        a csv-like structure
+        """
         traj_path = path.join(self.root_dir, 'trajectories')
         game_path = path.join(traj_path, self.game)
         
@@ -67,8 +105,13 @@ class AtariGrandChallengeDataset(Dataset):
 
                         data_idx = len(self.data) - 1
                         self.traj[data_idx] = (idx, frame) # save to be able to load screen later
+         
+        self.data = np.array(self.data)
                 
     def __load_screen(self, idx, frame):
+        """
+        Load the associated screen for the frame in <idx>.txt
+        """
         screen_path = path.join(self.root_dir, 'screens', self.game, str(idx))
         try:
             return io.imread(path.join(screen_path, str(frame) + '.png'))
@@ -93,6 +136,7 @@ class AtariGrandChallengeDataset(Dataset):
             observation=obs,
             reward=data['reward'], 
             done=data['done'],
+            action=data['action'],
             next_observation=next_obs)            
         
         if self.transform:
