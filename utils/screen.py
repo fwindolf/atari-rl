@@ -24,6 +24,9 @@ class ScreenBase:
         if self.cur_frame is None:
             self.cur_frame = self.__output(self.env.reset())
             
+    def get_dim(self):
+        return dim[0] * dim[1] * dim[2]
+            
     def input(self, action):
         """
         Input an action to the screen
