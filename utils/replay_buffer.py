@@ -1,76 +1,157 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from utils.transition import Transition
 
 class ReplayBuffer():
     """
     ReplayMemory implementation
     adapted from: https://github.com/transedward/pytorch-dqn/blob/master/utils/replay_buffer.py    
     """    
-    def __init__(self, size, history_len):
+    def __init__(self, size, history_len, screen):
         """
         Replay Buffer implementation
         Stores the frames as int8. This keeps the memory footprint low.
         
         size (int):        maximum numbers of transitions stored. 
-        history_len (int): number of memories retried for each observation
+        history_len (int): number of frames for each observation        
+        screen           : The reference to the screen that generates experiences
         """
         
         self.size = size
         self.history_len = history_len
+        self.screen = screen
         
         self.next_idx = 0
         self.num_transitions = 0
+       
+        self.frames     = None # dont know frame shape yet
+        self.action  = np.empty([self.size], dtype=np.int32)
+        self.reward  = np.empty([self.size], dtype=np.float32)
+        self.done    = np.empty([self.size], dtype=np.bool)
         
-        self.obs      = np.empty([self.size], dtype=np.uint8)
-        self.action   = np.empty([self.size], dtype=np.int32)
-        self.reward   = np.empty([self.size], dtype=np.float32)
-        self.done     = np.empty([self.size], dtype=np.bool)
-        
-    def initialize(self, number_of_replays, env):
+    def get_history_len(self):
         """
-        Initilize the replay memory with <number_of_replays> experiences
-        
-        Internally resets the environment to generate a fresh observation
-        
-        number_of_replays (int): How many experiences should be generated
-        env (gym.env)          : The reference to the environment that the experiences should be generated
-        return                 : The latest observation
+        Return the numer of frames for each observation
         """
-        raise NotImplemented()
+        return self.history_len
         
-        obs = env.reset()
+    def initialize_random(self, num_replays):
+        """
+        Initilize the replay memory with <num_replays> experiences
         
-        for i in range(number_of_replays):
-            # Do an action and save to this buffer
-            action = env.action_space.sample()
-            new_obs, reward, done, _ = env.step(action)
-            
-            # TODO: How to incorporate the preprocessing strategy 
-            obs_image = None
-            new_obs_image = None 
-                        
-            idx = self.store_frame(obs_image)
-            self.encode_recent_observation()
-            self.store_effect(action, reward, done)
-            
-            new_obs = obs
-            
-        return new_obs 
+        num_replays (int): How many experiences should be generated
+        return           : The latest observation
+        """
         
+        initialized = False
+        while(not initialized):
+            # run sequences
+            self.screen.reset()
+            for t in range(self.history_len):                
+                action = self.screen.sample_action() # random action
+                obs, reward, done = self.screen.input(action)
+                
+                assert(obs.dtype.name == 'uint8') # uses less memory
+                
+                idx = self.store_frame(obs)
+                self.store_effect(idx, action, reward, done)
+                
+                if done:
+                    break # start new sequence
+                    
+                if self.num_transitions >= num_replays:        
+                    initialized = True
+                    break
+                
+        return obs          
+    
+    def initialize_dataset(self, num_replays, dataset):
+        """
+        Initilize the replay memory with <num_replays> experiences
+        
+        Uses random samples from the datatset to generate experiences
+        
+        num_replays (int): How many experiences should be generated
+        dataset          : The dataset from which sequences are taken
+        return           : The latest observation
+        """
+        
+        initialized = False
+        while(not initialized):
+            # sample the a random frame (= start of our sequence)
+            d_idx = np.random.randint(len(dataset))
+            
+            for t in range(self.history_len):
+                transition = dataset.raw(d_idx)
+                
+                obs = self.screen.output(transition.observation)
+                reward = transition.reward
+                done = transition.done
+                action = transition.action
+            
+                assert(obs.dtype.name == 'uint8') # uses less memory
+                
+                idx = self.store_frame(obs) 
+                self.store_effect(idx, action, reward, done)
+                
+                d_idx += 1 # next frame in that sequence
+        
+                if done or transition.next_observation is None:
+                    break # start new sequence
+                    
+                if self.num_transitions >= num_replays:
+                    initialized = True
+                    break
+                    
+        return obs
+    
+    def initialize_playing(self, num_replays, agent):
+        """
+        Initialize the replay memory with <num_replays> experiences
+        
+        Let the agent play to generate experiences
+        
+        num_replays (int): How many experiences should be generated
+        agent            : The agent that plays in the environment
+        return           : The latest observation
+        """
+        
+        initialized = False
+        while(not initialized):
+            # run sequences
+            obs = self.screen.reset()
+            idx = self.store_frame(obs)
+            
+            for t in range(self.history_len):                
+                action = agent.next_action(obs)
+                obs, reward, done, _ = self.screen.input(action)
+                
+                assert(obs.dtype.name == 'uint8') # uses less memory
+                
+                idx = self.store_frame(obs)
+                self.store_effect(idx, action, reward, done)  
+                
+                if done:
+                    break # start new sequence
+                    
+                if self.num_transitions >= num_replays:
+                    initialized = True
+                    break
+                
+        return obs          
         
     def __encode_observation(self, idx):
         """
-        Encode observation in a defined way.
-        Pad with 0-frames to achieve history_len.
-        Use a maximum of one episode and encode the frames in (h, w, c)
-        
+        Aggregates frames to observations of history_len (padded with 0-frames if necessary)                
         idx (int) : The index of the observation that should be encoded.
+        return    : The observation consisting out of history_len frames with float datatype
         """
+        
+        assert len(self.frames.shape) == 3 # (size, h, w)        
+        observation = np.empty([self.history_len] + list(self.frames.shape[1:]))
+        
         end_idx = idx + 1
         start_idx = end_idx - self.history_len
-        
-        # are we using the right format of observations?
-        if len(self.obs.shape) == 2:
-            return self.obs[end_idx - 1]
         
         # are there enough frames in buffer and buffer not full?
         if start_idx < 0 and self.num_transitions != self.size:
@@ -85,14 +166,13 @@ class ReplayBuffer():
         missing_frames = self.history_len - (end_idx - start_idx)
         
         # do we need to generate empty frames ?
-        if start_idx < 0 or missing_context > 0:
-            frames = [np.zeros_like(self.obs[0])] * missing_frames
-            frames += [self.obs[idx % self.size] for idx in range(start_idx, end_idx)]
-            return np.concatenate(frames, 0)
-        else:
-            h, w = self.obs.shape[2], self.obs.shape[3]
-            return self.obs[start_idx:end_idx].reshape(-1, h, w)
-        
+        for idx in range(0, missing_frames):
+            observation[idx] = self.screen.output_float(np.zeros(self.frames.shape[1:]))
+            
+        for idx in range(missing_frames, self.history_len):
+            observation[idx] = self.screen.output_float(self.frames[start_idx + idx])    
+            
+        return observation
         
     def can_sample(self, batchsize):
         """
@@ -100,7 +180,7 @@ class ReplayBuffer():
         batchsize (int): The number of transitions to sample 
         return         : True if there are enough transitions available
         """        
-        return (batchsize + 1 <= self.num_transitions)
+        return (batchsize < self.num_transitions)
         
         
     def sample(self, batchsize):
@@ -110,26 +190,19 @@ class ReplayBuffer():
         batchsize(int): The number of transitions to sample
         return        : Tuple containing observations, actions, rewards and next_observations with done_mask indicating which actions have ended the episode
         """
-        assert self.num_tranisitions > 0
+        assert self.can_sample(batchsize)
         
         # generate indices 
         idxs = np.random.choice(range(self.num_transitions), batchsize, replace=False)
-                
-        # put together the observations, actions, rewards, ...
-        obs = np.concatenate([self.__encode_observation(idx)[np.newaxis, :] for idx in idxs], 0)
+        
+        # generate samples with history_len size that encode until done state
+        obs = np.concatenate([self.__encode_observation(idx)[np.newaxis, :] for idx in idxs], 0) #(batchsize, history_len, h, w)
         act = self.action[idxs]
         rew = self.reward[idxs]
-        next_obs = np.concatenate([self.__encode_observation(idx + 1)[np.newaxis, :] for idx in idxs], 0)
-        done_mask = np.array([1.0 if self.done[idx] else 0.0 for idx in idxs], dtype=np.float32)
+        next_obs = np.concatenate([self.__encode_observation(idx + 1)[np.newaxis, :] for idx in idxs], 0) 
+        done = np.array([1.0 if self.done[idx] else 0.0 for idx in idxs], dtype=np.float32)
         
-        return (obs, act, rew, next_obs, done_mask)
-    
-    def encode_recent_observations(self):
-        """
-        Return the <history_len> most recent frames
-        """        
-        assert self.num_transitions > 0
-        return self.__encode_observation((self.next_idx - 1) % self.size)
+        return (obs, act, rew, done, next_obs)
     
     def store_frame(self, frame):
         """
@@ -138,14 +211,17 @@ class ReplayBuffer():
         frame (np.array): Uint8 array of (h,w,c) 
         return          : Index of the stored frame
         """
-        if len(frame.shape) > 1:
-            frame.transpose(2, 0, 1)
-        
-        self.obs[self.next_idx] = frame
+        # check if we need to initialize frames (we dont know frame shape during _init_)
+        if self.frames is None: 
+            self.frames = np.empty([self.size] + list(frame.shape), dtype='uint8')
+
+        self.frames[self.next_idx] = frame
         at_idx = self.next_idx
         
         self.next_idx = (self.next_idx + 1) % self.size # circular buffer
-        self.num_transitions = min(self.size, self.num_tranisitions + 1)
+        self.num_transitions = min(self.size, self.num_transitions + 1)
+        
+        return at_idx
     
     def store_effect(self, idx, action, reward, done):
         """
