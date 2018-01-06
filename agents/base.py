@@ -8,10 +8,29 @@ from torch.autograd import Variable
 from torchvision import models
 
 class AgentBase:
-    def __init__(self):       
+    def __init__(self, screen):     
+        self.screen = screen
         self.actions = None
         self.memory = None
         self.model = None
+        
+    def initialize(self):
+        """
+        Initialize the replay buffer and model
+        """
+        raise NotImplemented()
+        
+    def play(self, screen, num_sequences):
+        """
+        Play in the environment to achieve the highest score
+        """
+        raise NotImplemented()
+        
+    def _epsilon(self, epoch, max_epoch):
+        """
+        Return a value for epsilon based on the epoch
+        """
+        raise NotImplemented()        
     
     def next_action(self, observation):
         """
@@ -20,9 +39,6 @@ class AgentBase:
         observation (frame) : The current state of the screen        
         return (int)        : The best action calculated by the agent
         """        
-        if np.random.rand() < self.eps:
-            return self.actions.sample() # random action from action space
-        else:
-            return self.model.predict(Variable(observation, volatile=True)).data.max(1).cpu()
+        raise NotImplemented()
         
         
