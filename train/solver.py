@@ -1,4 +1,5 @@
-
+import torch
+from torch.autograd import Variable
 
 class Solver:
     def __init__(self, optimizer, loss, stop_epoch, batchsize=100):
@@ -6,13 +7,12 @@ class Solver:
         Create a new solver class
         
         optimizer (torch.optim) : Optimizer for trainig the model
-        loss (torch.nn)         : Loss function 
-        stop_epch (int)         : 
+        loss (torch.nn)         : Loss function
+        batchsize (int)         : Size of a minibatch of observations
         """
         
         self.optimizer = optimizer
         self.loss = loss
-        self.stop_epch = stop_epoch
         self.batchsize = batchsize
         
         self.train_loss_history = []
@@ -30,18 +30,21 @@ class Solver:
         val_loader      : val data in torch.utils.data.DataLoader
         num_epochs (int): total number of training epochs
         log_nth (int)   : log training accuracy and loss every nth iteration
-        """        
+        """    
+        # TODO: Empty the histories
+        
+        # Initialize optimizer with the models parameters
+        optim = self.optimizer(agent.model.parameters())
         
         for epoch in range(num_epochs):
             # Adapted from dl4cv exercise 3 solver
-            for i, (inputs, targets) in enumerate(train_loader, 1):
-                t_loss = 0 # Loss of this minibatch
+            for i, (obs, action) in enumerate(train_loader, 1):                
                 
-                inputs, targets = Variable(inputs), Variable(targets)
+                inputs, targets = Variable(obs.float()), Variable(action.float())                
                 if agent.model.is_cuda:
                     inputs, targets = inputs.cuda(), targets.cuda(async=True)
 
-                optim.zero_grad()
+                optim.zero_grad()                
                 outputs = agent.model(inputs)    
                 
                 loss = self.loss_func(outputs, targets)
@@ -77,7 +80,7 @@ class Solver:
         reward_batch = Variable(torch.cat(reward))
         
         # Observations that dont end the sequence
-        non_final_obs = Variable(torch.cat([o for o in next_obs if o is not None])
+        non_final_obs = Variable(torch.cat([o for o in next_obs if o is not None]))
         
         # Q(s_t, a) -> Q(s_t) from model and select the columns of actions taken
         # .gather() chooses the confidence values that the model predicted at the index of the action
