@@ -35,14 +35,14 @@ class ModelBase(nn.Module):
         print('Saving model... %s' % path)
         torch.save(self.model, path) 
         
-    def predict(self, frame):
+    def predict(self, observation):
         """
         Predict the next action
         frame (observation) : The observation for which a new action is required
         return (action)     : The predicted action
         """
-        output = self.forward(frame)
-        _, prediction = torch.max(output, 1)
+        output = self.forward(observation)
+        _, prediction = torch.max(output, 1, keepdim=True)
         return prediction
     
     
