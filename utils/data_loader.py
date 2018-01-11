@@ -53,15 +53,15 @@ class AtariGrandChallengeDataset(Dataset):
         idx_test = indices[num_train + num_valid:]
       
         # make new datasets out of the splits
-        ds_train = AtariGrandChallengeDataset(self.root_dir, self.game, self.transform, self.screen, 0)
+        ds_train = AtariGrandChallengeDataset(self.root_dir, self.game, self.history_len, self.transform, self.screen, 0)
         ds_train.data = self.data[idx_train]
         ds_train.traj = self.traj
         
-        ds_valid = AtariGrandChallengeDataset(self.root_dir, self.game, self.transform, self.screen, 0)
+        ds_valid = AtariGrandChallengeDataset(self.root_dir, self.game, self.history_len, self.transform, self.screen, 0)
         ds_valid.data = self.data[idx_valid]
         ds_valid.traj = self.traj
         
-        ds_test = AtariGrandChallengeDataset(self.root_dir, self.game, self.transform, self.screen, 0)
+        ds_test = AtariGrandChallengeDataset(self.root_dir, self.game, self.history_len, self.transform, self.screen, 0)
         ds_test.data = self.data[idx_test]
         ds_test.traj = self.traj
         
@@ -179,7 +179,7 @@ class AtariGrandChallengeDataset(Dataset):
         
         # create new array for next_observation
         next_observation = np.empty(observation.shape)
-        for idx in range(len(observation)):
+        for idx in range(len(observation)- 1):
             next_observation[idx] = observation[idx + 1]
         
         next_observation[hlen] = next_frame        
