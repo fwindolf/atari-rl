@@ -5,6 +5,7 @@ from models.dqn import DQN
 import torch
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
+import torch.nn.functional as F
 
 
 import numpy as np
@@ -13,10 +14,13 @@ class DQNAgent(AgentBase):
     """
     The DQN agent implementation according to the DeepMind paper
     """
-    def __init__(self, screen, mem_size=100000, history_len=10):
+    def __init__(self, screen, mem_size=100000, history_len=10, gamma=0.999, loss=F.smooth_l1_loss):
         super().__init__(screen)
         self.memory = ReplayBuffer(mem_size, history_len, screen)
         self.model = DQN(history_len, screen.get_actions())
+        
+        self.gamma = gamma
+        self.loss = loss
         
     def initialize(self, num_replays=10000):
         """
@@ -63,7 +67,7 @@ class DQNAgent(AgentBase):
             prediction = self.model.predict(Variable(observation, volatile=True)).data.cpu().numpy()
             return int(prediction)
     
-    def optimize(self):
+    def optimize(self, optimizer, screen, batchsize, num_epochs, log_nth):
         """
         Everything that relates to state, action, reward, next_state comes from replay memory
         
@@ -72,8 +76,39 @@ class DQNAgent(AgentBase):
         2. Predict the Q values fro next_state (sequence of frames) from the model
         3. Calculate the targetQ values via bellman equation (target = reward + discount * max Q(next_state))
         4. Do backpropagation with the Q(state) and the targetQ values
-        """
-        raise NotImplemented()
+        """     
+        for epoch in range(num_epochs):
+            obs, action, reward, done, next_obs = self.memory.sample(batchsize)
+
+            # convert to variables (not from dataloader, so manually wrap in torch tensor)
+            obs = Variable(torch.FloatTensor(obs)) 
+            action = Variable(torch.LongTensor(action)) 
+            reward = Variable(torch.FloatTensor(reward)) 
+            non_final_mask = Variable(torch.ByteTensor((done==0).astype(np.int))) # invert done
+
+            # Observations that dont end the sequence
+            next_obs = torch.FloatTensor([o for o in next_obs if o is not None])
+            non_final_obs = Variable(next_obs)
+
+            # Q(s_t, a) -> Q(s_t) from model and select the columns of actions taken
+            # .gather() chooses the confidence values that the model predicted at the index of the action
+            # that was originally taken
+            obs_action_values = self.model(obs).gather(1, action.unsqueeze(1))
+
+            # V(s_t+1) for all next observations
+            next_obs_values = Variable(torch.zeros(batchsize).type(torch.Tensor))
+            next_obs_values[non_final_mask] = self.model(non_final_obs).max(1)[0] # future rewards predicted by model
+            next_obs_values = Variable(next_obs_values.data, volatile = False)
+
+            expected_obs_action_values = (next_obs_values * self.gamma) + reward
+
+            loss = self.loss(obs_action_values, expected_obs_action_values)
+
+            optimizer.zero_grad()
+            loss.backward()
+            for param in self.model.parameters():
+                param.grad.data.clamp_(-1, 1) # clamp gradient to stay stable
+            optimizer.step() 
             
             
 class HumanMemoryDQNAgent(DQNAgent):
