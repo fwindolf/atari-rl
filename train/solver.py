@@ -1,5 +1,6 @@
 import torch
 from torch.autograd import Variable
+import numpy as np
 
 class Solver:
     def __init__(self, optimizer, loss, stop_epoch, batchsize=100):
@@ -38,14 +39,14 @@ class Solver:
         
         for epoch in range(num_epochs):
             # Adapted from dl4cv exercise 3 solver
-            for i, (obs, action) in enumerate(train_loader, 1):                
+            for i, (obs, action) in enumerate(train_loader, 1):
                 
-                inputs, targets = Variable(obs.float()), Variable(action.float())                
+                inputs, targets = Variable(obs.type(torch.FloatTensor)), Variable(action.type(torch.LongTensor))                
                 if agent.model.is_cuda:
                     inputs, targets = inputs.cuda(), targets.cuda(async=True)
 
                 optim.zero_grad()                
-                outputs = agent.model(inputs)    
+                outputs = agent.model(inputs)   
                 
                 loss = self.loss(outputs, targets)
                 self.train_loss_history.append(loss.data.cpu().numpy())
@@ -58,7 +59,7 @@ class Solver:
                 # TODO: Some sort of logging 
                 
             _, preds = torch.max(outputs, 1)
-            train_acc = np.mean((preds == targets)[targets_mask].data.cpu().numpy())
+            train_acc = np.mean((preds == targets).data.cpu().numpy())
             self.train_acc_history.append(train_acc)
             
             # TODO: Logging
