@@ -47,7 +47,7 @@ class Solver:
                 optim.zero_grad()                
                 outputs = agent.model(inputs)    
                 
-                loss = self.loss_func(outputs, targets)
+                loss = self.loss(outputs, targets)
                 self.train_loss_history.append(loss.data.cpu().numpy())
                 
                 t_loss = loss.data.cpu().numpy()[0] # fetch from gpu
