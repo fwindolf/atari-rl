@@ -15,9 +15,6 @@ class DQN(ModelBase):
     def __init__(self, num_inputs, num_actions):
         super().__init__(num_inputs, num_actions)
         
-        if self.is_cuda():
-            self.cuda()
-        
         # TODO: This only works for certain input resolutions! (80,80)
 
         # Network definition
@@ -29,6 +26,9 @@ class DQN(ModelBase):
         self.bn3 = nn.BatchNorm2d(32)        
         self.fc4 = nn.Linear(7 * 7 * 32, 512)
         self.fc5 = nn.Linear(512, num_actions)
+        
+        if self.is_cuda:
+            self.cuda()
         
     def forward(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
