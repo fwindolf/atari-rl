@@ -60,7 +60,8 @@ class DQNAgent(AgentBase):
             return self.screen.sample_action() # random action from action space
         else:            
             observation = self.__encode_model_input(observation)            
-            return int(self.model.predict(Variable(observation, volatile=True)).data.cpu())
+            prediction = self.model.predict(Variable(observation, volatile=True)).data.cpu().numpy()
+            return int(prediction)
     
     def optimize(self):
         """
