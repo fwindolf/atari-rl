@@ -5,7 +5,6 @@ import torch.nn.functional as F
 import numpy as np
 
 from torch.autograd import Variable
-from torchvision import models
 
 class AgentBase:
     def __init__(self, screen):     
@@ -24,13 +23,7 @@ class AgentBase:
         """
         Play in the environment to achieve the highest score
         """
-        raise NotImplemented()
-        
-    def _epsilon(self, epoch, max_epoch):
-        """
-        Return a value for epsilon based on the epoch
-        """
-        raise NotImplemented()        
+        raise NotImplemented()             
     
     def next_action(self, observation):
         """
