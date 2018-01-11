@@ -64,49 +64,26 @@ class Solver:
             
             # TODO: Logging
             
-    def train_online(self, agent, screen, gamma=0.95, num_epochs=10, log_nth=0):
+    def train_online(self, agent, screen, num_epochs=10, log_nth=0):
         """
         Let the agent play in the environment to optimize the strategy
         
-        agent (agent)   :
-        screen (screen) :
+        agent (agent)   : The agent that should be trained
+        screen (screen) : Screen wrapper around the environment
         num_epochs (int): total number of training epochs
         log_nth (int)   : log training accuracy and loss every nth iteration
-        """
-        
-        obs, action, reward, next_obs, done = agent.memory.sample(self.batchsize)
-        
-        obs_batch = Variable(torch.cat(obs))
-        action_batch = Variable(torch.cat(action))
-        reward_batch = Variable(torch.cat(reward))
-        
-        # Observations that dont end the sequence
-        non_final_obs = Variable(torch.cat([o for o in next_obs if o is not None]))
-        
-        # Q(s_t, a) -> Q(s_t) from model and select the columns of actions taken
-        # .gather() chooses the confidence values that the model predicted at the index of the action
-        # that was originally taken
-        obs_action_values = model(obs_batch).gather(1, action_batch)
-        
-        # V(s_t+1) for all next observations
-        next_obs_values = Variable(torch.zeros(self.batchsize).type(Tensor))
-        next_obs_values[done] = model(non_final_obs).max(1)[0] # future rewards predicted by model
-        next_obs_values.volatile = False
-        
-        expected_obs_action_values = (next_obs_values * gamma) + reward_batch
-        
-        loss = self.online_loss(obs_action_values, expected_obs_action_values)
-                                 
-        self.optim.zero_grad()
-        loss.backward()
-        for param in self.agent.model.parameters():
-            param.grad.data.clamp_(-1, 1) # clamp gradient to stay stable
-        self.optim.step()        
+        """       
+        optim = self.optimizer(agent.model.parameters())
+        agent.optimize(optim, screen, self.batchsize, num_epochs, log_nth)
+       
             
     def play(self, agent, screen):
         """
-        
+        Let the agent play to benchmark
+        agent (agent)   : The agent that should be trained
+        screen (screen) : Screen wrapper around the environment        
         """
+        agent.play(screen)
         
         
             
