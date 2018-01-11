@@ -120,13 +120,27 @@ class ScreenBase:
         """
         return self.env.action_space.n
     
-    def get_action_meaning(self, action):
+    def get_action_code(self, action=None):
+        action_codes = ['NOOP', 'FIRE', 'UP', 'RIGHT', 'LEFT', 'DOWN', 
+                        'UPRIGHT', 'UPLEFT', 'DOWNRIGHT', 'DOWNLEFT',
+                        'UPFIRE', 'RIGHTFIRE', 'LEFTFIRE', 'DOWNFIRE',
+                        'UPRIGHTFIRE', 'UPLEFTFIRE', 'DOWNRIGHTFIRE', 'DOWNLEFTFIRE']
+        
+        if action is not None:
+            return action_codes[int(action)]
+        else:
+            return action_codes
+        
+    def get_action_meaning(self, action=None):
         """
         Get the meaning of an action as string
         action (int) : The code for the action
         """
-        return self.env.unwrapped.get_action_meanings()[action]
-    
+        if action is not None:
+            assert(action < self.get_actions())
+            return self.env.unwrapped.get_action_meanings()[action]
+        else:
+            return self.env.unwrapped.get_action_meanings()
     def sample_action(self):
         """
         Get a random action from the gyms action space

@@ -31,8 +31,11 @@ class AtariGrandChallengeDataset(Dataset):
         self.data = list()      
         self.traj = dict()
         
+        
         self.screen = screen # for transforming data to consistent format
         self.screens = dict() # cache screens
+                
+        self.action_meanings = self.screen.get_action_meaning()
         
         self.__load_trajectories(max_files)
         
@@ -161,6 +164,10 @@ class AtariGrandChallengeDataset(Dataset):
         reward = sample.reward
         done = sample.done
         next_frame = sample.next_observation
+        
+        # get the action codes as 0-n like from the environment
+        code = self.screen.get_action_code(action)
+        action = self.action_meanings.index(code) 
         
         # create new array for our observation
         observation = np.empty([self.history_len] + list(frame.shape), dtype='uint8')
