@@ -72,16 +72,21 @@ class Solver:
         num_epochs (int): total number of training epochs
         log_nth (int)   : log training accuracy and loss every nth iteration
         """    
-        # TODO: Empty the histories
+
+        # delete history
+        self.train_loss_history = []
+        self.train_acc_history = []
+        self.val_acc_history = []
+        self.val_loss_history = []
         
         # Initialize optimizer with the models parameters
         optim = self.optimizer(agent.model.parameters())
         len_trainloader = len(train_loader)
         self.logger.info('Offline Training started')
 
-
         for epoch in range(num_epochs):
             # Adapted from dl4cv exercise 3 solver
+            no_correct_preds=0
             for i, (obs, action) in enumerate(train_loader, 1):
                 
                 inputs, targets = Variable(obs.type(torch.FloatTensor)), Variable(action.type(torch.LongTensor))                
@@ -99,20 +104,21 @@ class Solver:
                 loss.backward()                
                 optim.step()
 
-                # TODO: Some sort of logging
+                _, pred = torch.max(outputs, 1)     # compute prediction
+
+                if np.sum((pred == targets).data.cpu().numpy()):
+                    no_correct_preds +=1
+
+                # log to console: epoch, iteration, loss, prediction, target
                 self.logger.debug('Epoch %d/%d\t Iter %d/%d\t Loss %f' %
                                   (epoch, num_epochs, i, len_trainloader, t_loss))
+                self.logger.debug('Prediction: %s \t Target: %s' %
+                                  (str(pred.data.cpu().numpy()),str(targets.data.cpu().numpy())))
 
-                #REMOVE AFTER USE
-                if i == 10:
-                    break
-                
-            _, preds = torch.max(outputs, 1)
-            train_acc = np.mean((preds == targets).data.cpu().numpy())
+            train_acc = no_correct_preds / len_trainloader
             self.train_acc_history.append(train_acc)
-            
-            # TODO: Logging
-            self.logger.info('Train Acc %s' % str(train_acc))
+
+            self.logger.info('Epoch %d \t Train Acc %s' % (epoch,str(train_acc)))
 
         self.logger.info('Offline Training ended')
             
@@ -125,9 +131,12 @@ class Solver:
         num_epochs (int): total number of training epochs
         log_nth (int)   : log training accuracy and loss every nth iteration
         """
+
         self.logger.info('Online Training started')
+
         optim = self.optimizer(agent.model.parameters())
         agent.optimize(optim, screen, self.batchsize, num_epochs, self.logger, log_nth)
+
         self.logger.info('Online Training finished')
        
             
