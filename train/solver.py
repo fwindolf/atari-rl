@@ -112,13 +112,13 @@ class Solver:
                 # log to console: epoch, iteration, loss, prediction, target
                 self.logger.debug('Epoch %d/%d\t Iter %d/%d\t Loss %f' %
                                   (epoch, num_epochs, i, len_trainloader, t_loss))
-                self.logger.debug('Prediction: %s \t Target: %s' %
+                self.logger.debug('\t\tPrediction: %s \t Target: %s' %
                                   (str(pred.data.cpu().numpy()),str(targets.data.cpu().numpy())))
 
             train_acc = no_correct_preds / len_trainloader
             self.train_acc_history.append(train_acc)
 
-            self.logger.info('Epoch %d \t Train Acc %s' % (epoch,str(train_acc)))
+            self.logger.info('Epoch %d \t Train Acc %s %%' % (epoch,str(train_acc*100)))
 
         self.logger.info('Offline Training ended')
             
