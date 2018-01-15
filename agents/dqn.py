@@ -51,7 +51,40 @@ class DQNAgent(AgentBase):
                 np.expand_dims(observation, 2)), axis=2)
 
         return torch.FloatTensor(observation).permute(2, 0, 1).unsqueeze(0) # make N,c,h,w
-        
+
+    def select_action(self, Qvalues,selection_type='e_greedy', epsilon=0.3):
+
+        # adapted from
+        # https://medium.com/emergent-future/simple-reinforcement-learning-with-tensorflow-part-7-action-selection-strategies-for-exploration-d3a97b7cceaf
+
+        # 1 random approach
+        if selection_type == 'random':
+            action = self.screen.sample_action()
+
+        # 2 greedy approach
+        elif selection_type == 'greedy':
+            action = np.argmax(Qvalues)
+
+        # 4 boltzmann approach
+        elif selection_type == 'boltzmann':
+            action_value = np.random.choice(Qvalues, p=Qvalues)
+            action = np.argmax(Q_values == action_value)
+
+        # 5 bayesian approach (multiple predictions with dropout) - advanced
+        # different network architecture neccessary
+
+        # 3 epsilon greedy approach - DEFAULT
+        else:
+            if np.random.rand(1) < epsilon:
+                action = self.screen.sample_action()
+            else:
+                action = np.argmax(Qvalues)
+
+        return int(action)
+
+
+        raise NotImplemented()
+
     def next_action(self, observation):
         """
         Choose the next action to take based on an observation
@@ -67,7 +100,7 @@ class DQNAgent(AgentBase):
             prediction = self.model.predict(Variable(observation, volatile=True)).data.cpu().numpy()
             return int(prediction)
     
-    def optimize(self, optimizer, screen, batchsize, num_epochs, log_nth):
+    def optimize(self, optimizer, screen, batchsize, num_epochs, logger, log_nth):
         """
         Everything that relates to state, action, reward, next_state comes from replay memory
         
@@ -104,12 +137,36 @@ class DQNAgent(AgentBase):
 
             loss = self.loss(obs_action_values, expected_obs_action_values)
 
+            logger.debug('Loss: %f' % float(loss.data.cpu().numpy()))
+
             optimizer.zero_grad()
             loss.backward()
             for param in self.model.parameters():
                 param.grad.data.clamp_(-1, 1) # clamp gradient to stay stable
-            optimizer.step() 
-            
+            optimizer.step()
+
+    def play(self, screen, num_sequences, logger):
+
+        # TODO: implement snapshot plots to see the agent playing
+
+        reward_history = []
+
+        for i in range(num_sequences):
+
+            done = False
+            obs = screen.reset()        # get initial state
+            running_reward = 0          # set running reward to zero
+
+            while not done:             # while game not lost/terminated
+
+                action = self.next_action(obs)              # predict next action
+                obs, reward, done = screen.input(action)    # apply action to environment
+                running_reward += reward
+
+            reward_history.append(running_reward)
+            logger.info('Final reward of episode %d is %f' % (i, running_reward))
+
+        return reward_history
             
 class HumanMemoryDQNAgent(DQNAgent):
     """

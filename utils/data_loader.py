@@ -36,10 +36,11 @@ class AtariGrandChallengeDataset(Dataset):
         self.screens = dict() # cache screens
                 
         self.action_meanings = self.screen.get_action_meaning()
-        
+
         self.__load_trajectories(max_files)
+
         
-    def split(self, train, valid):
+    def split(self, train, valid, mode='NONE'):
         """
         Split the dataset into training, validation and test data
         
@@ -54,7 +55,14 @@ class AtariGrandChallengeDataset(Dataset):
         idx_train = indices[:num_train]
         idx_valid = indices[num_train:num_train + num_valid]
         idx_test = indices[num_train + num_valid:]
-      
+
+        # for overfitting on files 0 and 1
+        # 0, 1, 3, 11, 4
+        if mode == 'OVERFIT':
+            print('data_loader.py - split() - Performs overfit split')
+            idx_train = [0, 302, 388, 514, 722]
+            print('Uses indices %s of sample 0' % str(idx_train))
+
         # make new datasets out of the splits
         ds_train = AtariGrandChallengeDataset(self.root_dir, self.game, self.history_len, self.transform, self.screen, 0)
         ds_train.data = self.data[idx_train]
@@ -89,7 +97,7 @@ class AtariGrandChallengeDataset(Dataset):
             if filename.endswith('.txt'):
                 # Create data for each of the <idx>.txt files
                 idx = int(filename.split('.')[0])
-                
+
                 # Save the lines of the txt files
                 with open(path.join(game_path, filename)) as f:
                     data = csv.reader(f, delimiter=',')
