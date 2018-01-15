@@ -5,7 +5,7 @@ import logging
 import sys
 
 class Solver:
-    def __init__(self, optimizer, loss, stop_epoch, batchsize=100, logfile_path='logfile.log', log_level='WARNING'):
+    def __init__(self, optimizer, loss, batchsize=100, logfile_path='logfile.log', log_level='WARNING'):
         """
         Create a new solver class
         
@@ -29,8 +29,6 @@ class Solver:
         self.val_loss_history = []
 
     def init_logging(self):
-
-
         log_level_dict = {'DEBUG': 10, 'INFO': 20, 'WARNING': 30,
                           'ERROR': 40, 'CRITICAL': 50}
 
@@ -51,13 +49,7 @@ class Solver:
         fh = logging.FileHandler(self.logfile_path)
         fh.setLevel(logging.INFO)
         fh.setFormatter(file_logFormatter)
-        self.logger.addHandler(fh)
-
-        self.logger.debug('Test Debug')
-        self.logger.info('Test Info')
-        self.logger.warning('Test Warning')
-        self.logger.error('Test Error')
-        self.logger.critical('Test Critical')
+        self.logger.addHandler(fh)        
 
     def train_offline(self, agent, train_loader, val_loader, num_epochs=10, log_nth=0):
         """
@@ -81,8 +73,8 @@ class Solver:
         
         # Initialize optimizer with the models parameters
         optim = self.optimizer(agent.model.parameters())
-        len_trainloader = len(train_loader)
-        self.logger.info('Offline Training started')
+        self.logger.info('Offline Training started with %d iterations in %d epochs' % 
+                         (len(train_loader), num_epochs))
 
         for epoch in range(num_epochs):
             # Adapted from dl4cv exercise 3 solver
@@ -111,11 +103,11 @@ class Solver:
 
                 # log to console: epoch, iteration, loss, prediction, target
                 self.logger.debug('Epoch %d/%d\t Iter %d/%d\t Loss %f' %
-                                  (epoch, num_epochs, i, len_trainloader, t_loss))
+                                  (epoch, num_epochs, i, len(train_loader), t_loss))
                 self.logger.debug('\t\tPrediction: %s \t Target: %s' %
                                   (str(pred.data.cpu().numpy()),str(targets.data.cpu().numpy())))
 
-            train_acc = no_correct_preds / len_trainloader
+            train_acc = no_correct_preds / len(train_loader)
             self.train_acc_history.append(train_acc)
 
             self.logger.info('Epoch %d \t Train Acc %s %%' % (epoch,str(train_acc*100)))
@@ -140,7 +132,7 @@ class Solver:
         self.logger.info('Online Training finished')
        
             
-    def play(self, agent, screen):
+    def play(self, agent, screen, num_sequences=100):
         """
         Let the agent play to benchmark
         agent (agent)   : The agent that should be trained
@@ -148,9 +140,24 @@ class Solver:
         """
 
         self.logger.info('Wanna play a game? - Game started!')
-
-        agent.play(screen, 2, self.logger)
-
+        
+        best_score = 0
+        scores = []
+        durations = []
+        
+        for i in range(num_sequences):
+            score, duration = agent.play(screen)
+            scores.append(score)
+            durations.append(duration)
+            self.logger.debug('Score %d after %d frames' % (score, duration))
+            
+            if score > best_score:
+                self.logger.debug('New Highscore %d' % (score))
+                
+        self.logger.info('Mean score %f' % (np.mean(scores)))
+        self.logger.info('Mean duration %f' % (np.mean(duration)))
+                
+        self.logger.info('Highscore %d out of %d sequences' % (best_score, num_sequences))
         self.logger.info('Game ended')
         
             

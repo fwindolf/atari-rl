@@ -145,28 +145,26 @@ class DQNAgent(AgentBase):
                 param.grad.data.clamp_(-1, 1) # clamp gradient to stay stable
             optimizer.step()
 
-    def play(self, screen, num_sequences, logger):
+    def play(self, screen, max_duration=100000):
 
         # TODO: implement snapshot plots to see the agent playing
 
-        reward_history = []
+        # set to initial
+        obs = screen.reset()        
+        
+        running_reward = 0
+        duration = 0
+        
+        done = False
+        # while game not lost/terminated
+        while not done and duration < max_duration:
+            action = self.next_action(obs)              # predict next action
+            obs, reward, done = screen.input(action)    # apply action to environment
+                        
+            running_reward += reward
+            duration += 1
 
-        for i in range(num_sequences):
-
-            done = False
-            obs = screen.reset()        # get initial state
-            running_reward = 0          # set running reward to zero
-
-            while not done:             # while game not lost/terminated
-
-                action = self.next_action(obs)              # predict next action
-                obs, reward, done = screen.input(action)    # apply action to environment
-                running_reward += reward
-
-            reward_history.append(running_reward)
-            logger.info('Final reward of episode %d is %f' % (i, running_reward))
-
-        return reward_history
+        return running_reward, duration
             
 class HumanMemoryDQNAgent(DQNAgent):
     """
