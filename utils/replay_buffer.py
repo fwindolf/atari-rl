@@ -170,7 +170,7 @@ class ReplayBuffer():
             observation[idx] = self.screen.output_float(np.zeros(self.frames.shape[1:]))
             
         for idx in range(missing_frames, self.history_len):
-            observation[idx] = self.screen.output_float(self.frames[start_idx + idx])    
+            observation[idx] = self.screen.output_float(self.frames[(start_idx + idx) % self.size])    
             
         return observation
         
