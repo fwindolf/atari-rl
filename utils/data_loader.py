@@ -175,7 +175,11 @@ class AtariGrandChallengeDataset(Dataset):
         
         # get the action codes as 0-n like from the environment
         code = self.screen.get_action_code(action)
-        action = self.action_meanings.index(code) 
+        try:
+            action = self.action_meanings.index(code) 
+        except ValueError:
+            # invalid action translates to noop in game
+            action = 0
         
         # create new array for our observation
         observation = np.empty([self.history_len] + list(frame.shape), dtype='uint8')
