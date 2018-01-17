@@ -145,7 +145,7 @@ class DQNAgent(AgentBase):
                 param.grad.data.clamp_(-1, 1) # clamp gradient to stay stable
             optimizer.step()
 
-    def play(self, screen, max_duration=100000):
+    def play(self, screen, max_duration=100000, save=False):
 
         # TODO: implement snapshot plots to see the agent playing
 
@@ -161,6 +161,10 @@ class DQNAgent(AgentBase):
             action = self.next_action(obs)              # predict next action
             obs, reward, done = screen.input(action)    # apply action to environment
                         
+            if save:
+                idx = self.memory.store_frame(obs)
+                self.memory.store_effect(idx, action, reward, done)
+                
             running_reward += reward
             duration += 1
 

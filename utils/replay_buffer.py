@@ -170,7 +170,7 @@ class ReplayBuffer():
             observation[idx] = self.screen.output_float(np.zeros(self.frames.shape[1:]))
             
         for idx in range(missing_frames, self.history_len):
-            observation[idx] = self.screen.output_float(self.frames[start_idx + idx])    
+            observation[idx] = self.screen.output_float(self.frames[(start_idx + idx) % self.size])    
             
         return observation
         
@@ -211,6 +211,8 @@ class ReplayBuffer():
         frame (np.array): Uint8 array of (h,w,c) 
         return          : Index of the stored frame
         """
+        assert(frame.dtype == np.uint8)
+        
         # check if we need to initialize frames (we dont know frame shape during _init_)
         if self.frames is None: 
             self.frames = np.empty([self.size] + list(frame.shape), dtype='uint8')

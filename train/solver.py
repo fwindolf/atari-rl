@@ -132,7 +132,7 @@ class Solver:
         self.logger.info('Online Training finished')
        
             
-    def play(self, agent, screen, num_sequences=100):
+    def play(self, agent, screen, num_sequences=100, save=False):
         """
         Let the agent play to benchmark
         agent (agent)   : The agent that should be trained
@@ -146,19 +146,25 @@ class Solver:
         durations = []
         
         for i in range(num_sequences):
-            score, duration = agent.play(screen)
+            score, duration = agent.play(screen, save=save)
             scores.append(score)
             durations.append(duration)
             self.logger.debug('Score %d after %d frames' % (score, duration))
             
             if score > best_score:
                 self.logger.debug('New Highscore %d' % (score))
+                best_score = score
+                
+            if i % int(num_sequences / 10) == 0:
+                self.logger.info('%d/%d Highscore is %d' % (i , num_sequences, best_score))
                 
         self.logger.info('Mean score %f' % (np.mean(scores)))
         self.logger.info('Mean duration %f' % (np.mean(duration)))
                 
         self.logger.info('Highscore %d out of %d sequences' % (best_score, num_sequences))
         self.logger.info('Game ended')
+        
+        return best_score, np.mean(scores), np.mean(duration)
         
             
     
