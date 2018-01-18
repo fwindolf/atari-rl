@@ -1,0 +1,106 @@
+2018-01-18 15:16:46,013 - train.solver - INFO - Wanna play a game? - Game started!
+2018-01-18 15:16:49,759 - train.solver - INFO - 0/10 Highscore is 15
+2018-01-18 15:16:53,204 - train.solver - INFO - 1/10 Highscore is 15
+2018-01-18 15:16:58,663 - train.solver - INFO - 2/10 Highscore is 100
+2018-01-18 15:17:03,467 - train.solver - INFO - 3/10 Highscore is 100
+2018-01-18 15:17:06,050 - train.solver - INFO - 4/10 Highscore is 100
+2018-01-18 15:17:09,108 - train.solver - INFO - 5/10 Highscore is 100
+2018-01-18 15:17:14,069 - train.solver - INFO - 6/10 Highscore is 100
+2018-01-18 15:17:17,923 - train.solver - INFO - 7/10 Highscore is 100
+2018-01-18 15:17:22,344 - train.solver - INFO - 8/10 Highscore is 100
+2018-01-18 15:17:29,087 - train.solver - INFO - 9/10 Highscore is 100
+2018-01-18 15:17:29,095 - train.solver - INFO - Mean score 27.500000
+2018-01-18 15:17:29,102 - train.solver - INFO - Mean duration 1190.000000
+2018-01-18 15:17:29,105 - train.solver - INFO - Highscore 100 out of 10 sequences
+2018-01-18 15:17:29,111 - train.solver - INFO - Game ended
+2018-01-18 15:17:34,784 - train.solver - INFO - Online Training started
+2018-01-18 15:17:47,900 - train.solver - INFO - Online Training finished
+2018-01-18 15:17:47,902 - train.solver - INFO - Wanna play a game? - Game started!
+2018-01-18 15:17:54,134 - train.solver - INFO - 0/10 Highscore is 235
+2018-01-18 15:18:00,640 - train.solver - INFO - 1/10 Highscore is 235
+2018-01-18 15:18:06,948 - train.solver - INFO - 2/10 Highscore is 235
+2018-01-18 15:18:12,659 - train.solver - INFO - 3/10 Highscore is 235
+2018-01-18 15:18:18,001 - train.solver - INFO - 4/10 Highscore is 235
+2018-01-18 15:18:23,853 - train.solver - INFO - 5/10 Highscore is 235
+2018-01-18 15:18:29,935 - train.solver - INFO - 6/10 Highscore is 235
+2018-01-18 15:18:35,762 - train.solver - INFO - 7/10 Highscore is 235
+2018-01-18 15:18:41,703 - train.solver - INFO - 8/10 Highscore is 235
+2018-01-18 15:18:47,761 - train.solver - INFO - 9/10 Highscore is 235
+2018-01-18 15:18:47,777 - train.solver - INFO - Mean score 235.000000
+2018-01-18 15:18:47,782 - train.solver - INFO - Mean duration 1181.000000
+2018-01-18 15:18:47,788 - train.solver - INFO - Highscore 235 out of 10 sequences
+2018-01-18 15:18:47,793 - train.solver - INFO - Game ended
+2018-01-18 15:18:47,797 - train.solver - INFO - Online Training started
+2018-01-18 15:19:00,333 - train.solver - INFO - Online Training finished
+2018-01-18 15:19:00,334 - train.solver - INFO - Wanna play a game? - Game started!
+2018-01-18 15:19:03,690 - train.solver - INFO - 0/10 Highscore is 0
+2018-01-18 15:19:07,528 - train.solver - INFO - 1/10 Highscore is 0
+2018-01-18 15:19:11,170 - train.solver - INFO - 2/10 Highscore is 0
+2018-01-18 15:19:15,072 - train.solver - INFO - 3/10 Highscore is 0
+2018-01-18 15:19:19,032 - train.solver - INFO - 4/10 Highscore is 0
+2018-01-18 15:19:23,549 - train.solver - INFO - 5/10 Highscore is 0
+2018-01-18 15:19:27,605 - train.solver - INFO - 6/10 Highscore is 0
+2018-01-18 15:19:31,867 - train.solver - INFO - 7/10 Highscore is 0
+2018-01-18 15:19:35,511 - train.solver - INFO - 8/10 Highscore is 0
+2018-01-18 15:19:38,860 - train.solver - INFO - 9/10 Highscore is 0
+2018-01-18 15:19:38,875 - train.solver - INFO - Mean score 0.000000
+2018-01-18 15:19:38,878 - train.solver - INFO - Mean duration 673.000000
+2018-01-18 15:19:38,884 - train.solver - INFO - Highscore 0 out of 10 sequences
+2018-01-18 15:19:38,889 - train.solver - INFO - Game ended
+2018-01-18 15:19:38,895 - train.solver - INFO - Online Training started
+2018-01-18 15:19:51,766 - train.solver - INFO - Online Training finished
+2018-01-18 15:19:51,767 - train.solver - INFO - Wanna play a game? - Game started!
+2018-01-18 15:19:57,763 - train.solver - INFO - 0/10 Highscore is 285
+2018-01-18 15:20:03,007 - train.solver - INFO - 1/10 Highscore is 390
+2018-01-18 15:20:06,957 - train.solver - INFO - 2/10 Highscore is 390
+2018-01-18 15:20:13,168 - train.solver - INFO - 3/10 Highscore is 390
+2018-01-18 15:20:19,659 - train.solver - INFO - 4/10 Highscore is 580
+2018-01-18 15:20:25,599 - train.solver - INFO - 5/10 Highscore is 580
+2018-01-18 15:20:31,656 - train.solver - INFO - 6/10 Highscore is 580
+2018-01-18 15:20:37,703 - train.solver - INFO - 7/10 Highscore is 580
+2018-01-18 15:20:44,215 - train.solver - INFO - 8/10 Highscore is 580
+2018-01-18 15:20:50,065 - train.solver - INFO - 9/10 Highscore is 580
+2018-01-18 15:20:50,069 - train.solver - INFO - Mean score 348.000000
+2018-01-18 15:20:50,074 - train.solver - INFO - Mean duration 1109.000000
+2018-01-18 15:20:50,077 - train.solver - INFO - Highscore 580 out of 10 sequences
+2018-01-18 15:20:50,080 - train.solver - INFO - Game ended
+2018-01-18 15:20:50,084 - train.solver - INFO - Online Training started
+2018-01-18 15:21:02,547 - train.solver - INFO - Online Training finished
+2018-01-18 15:21:02,550 - train.solver - INFO - Wanna play a game? - Game started!
+2018-01-18 15:21:06,525 - train.solver - INFO - 0/10 Highscore is 180
+2018-01-18 15:21:11,148 - train.solver - INFO - 1/10 Highscore is 180
+2018-01-18 15:21:15,371 - train.solver - INFO - 2/10 Highscore is 180
+2018-01-18 15:21:19,797 - train.solver - INFO - 3/10 Highscore is 180
+2018-01-18 15:21:24,133 - train.solver - INFO - 4/10 Highscore is 180
+2018-01-18 15:21:28,560 - train.solver - INFO - 5/10 Highscore is 180
+2018-01-18 15:21:32,828 - train.solver - INFO - 6/10 Highscore is 180
+2018-01-18 15:21:37,046 - train.solver - INFO - 7/10 Highscore is 180
+2018-01-18 15:21:41,274 - train.solver - INFO - 8/10 Highscore is 180
+2018-01-18 15:21:45,532 - train.solver - INFO - 9/10 Highscore is 180
+2018-01-18 15:21:45,547 - train.solver - INFO - Mean score 180.000000
+2018-01-18 15:21:45,553 - train.solver - INFO - Mean duration 826.000000
+2018-01-18 15:21:45,559 - train.solver - INFO - Highscore 180 out of 10 sequences
+2018-01-18 15:21:45,563 - train.solver - INFO - Game ended
+2018-01-18 15:21:45,567 - train.solver - INFO - Online Training started
+2018-01-18 15:21:57,745 - train.solver - INFO - Online Training finished
+2018-01-18 15:21:57,747 - train.solver - INFO - Wanna play a game? - Game started!
+2018-01-18 15:22:03,238 - train.solver - INFO - 0/10 Highscore is 235
+2018-01-18 15:22:08,659 - train.solver - INFO - 1/10 Highscore is 235
+2018-01-18 15:22:14,277 - train.solver - INFO - 2/10 Highscore is 235
+2018-01-18 15:22:19,767 - train.solver - INFO - 3/10 Highscore is 235
+2018-01-18 15:22:25,406 - train.solver - INFO - 4/10 Highscore is 235
+2018-01-18 15:22:31,880 - train.solver - INFO - 5/10 Highscore is 235
+2018-01-18 15:22:38,298 - train.solver - INFO - 6/10 Highscore is 235
+2018-01-18 15:22:44,108 - train.solver - INFO - 7/10 Highscore is 235
+2018-01-18 15:22:50,159 - train.solver - INFO - 8/10 Highscore is 235
+2018-01-18 15:22:55,650 - train.solver - INFO - 9/10 Highscore is 235
+2018-01-18 15:22:55,666 - train.solver - INFO - Mean score 235.000000
+2018-01-18 15:22:55,669 - train.solver - INFO - Mean duration 1166.000000
+2018-01-18 15:22:55,673 - train.solver - INFO - Highscore 235 out of 10 sequences
+2018-01-18 15:22:55,674 - train.solver - INFO - Game ended
+2018-01-18 15:22:55,676 - train.solver - INFO - Online Training started
+2018-01-18 15:23:08,009 - train.solver - INFO - Online Training finished
+2018-01-18 15:23:08,010 - train.solver - INFO - Wanna play a game? - Game started!
+2018-01-18 15:23:13,783 - train.solver - INFO - 0/10 Highscore is 235
+2018-01-18 15:23:20,022 - train.solver - INFO - 1/10 Highscore is 235
+2018-01-18 15:23:26,201 - train.solver - INFO - 2/10 Highscore is 235

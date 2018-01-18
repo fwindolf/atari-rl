@@ -19,6 +19,7 @@ def normal(x, mu, sigma_sq):
     b = 1/(2*sigma_sq*pi.expand_as(sigma_sq)).sqrt()
     return a*b
 
+
 class REINFORCE:
     """Agent for REINFORCE policy gradient algorithm."""
 
