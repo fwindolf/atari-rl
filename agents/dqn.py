@@ -129,6 +129,8 @@ class DQNAgent(AgentBase):
         discount * max Q(next_state))
         4. Do backpropagation with the Q(state) and the targetQ values
 
+        Returns the train loss history.
+
         Args:
             optimizer : the optimizer.
             screen : wrapper for the environment
@@ -137,6 +139,8 @@ class DQNAgent(AgentBase):
             logger :
             log_nth (int) : log every log_nth step
         """
+
+        train_loss_history = []
         for epoch in range(num_epochs):
             obs, action, reward, done, next_obs = self.memory.sample(batchsize)
 
@@ -177,7 +181,7 @@ class DQNAgent(AgentBase):
                 + reward
 
             loss = self.loss(obs_action_values, expected_obs_action_values)
-
+            train_loss_history.append(loss.data.cpu().numpy())
             logger.debug('Loss: %f' % float(loss.data.cpu().numpy()))
 
             optimizer.zero_grad()
@@ -185,6 +189,8 @@ class DQNAgent(AgentBase):
             for param in self.model.parameters():
                 param.grad.data.clamp_(-1, 1)  # clamp gradient to stay stable
             optimizer.step()
+
+        return train_loss_history
 
     def play(self, screen, max_duration=100000, save=False):
 

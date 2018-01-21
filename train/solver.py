@@ -152,7 +152,8 @@ class Solver:
                      screen,
                      num_epochs=10,
                      learning_rate=0.01,
-                     log_nth=0):
+                     log_nth=0,
+                     weight_decay=0):
         """Let the agent play in the environment to optimize the strategy.
 
         Args:
@@ -163,9 +164,14 @@ class Solver:
             log_nth (int)   : log training accuracy and loss every nth iterat°
         """
         self.logger.info('Online Training started')
+        self.logger.info('Memory.next_idx : '+str(agent.memory.next_idx))
 
-        optim = self.optimizer(agent.model.parameters(), lr=learning_rate)
-        agent.optimize(
+        optim = self.optimizer(
+            agent.model.parameters(),
+            lr=learning_rate,
+            weight_decay=weight_decay
+        )
+        self.train_loss_history = agent.optimize(
             optim,
             screen,
             self.batchsize,
