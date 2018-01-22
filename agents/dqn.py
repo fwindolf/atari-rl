@@ -214,84 +214,43 @@ def play(self, screen, epoch, max_epoch, max_duration=100000, save=False):
             _, _, _, done = self.step(screen, epoch, max_epoch, save)
             
         return self.rew, self.dur
-
-
-class DatasetDQNAgent(DQNAgent):
+    
+class HumanMemoryDQNAgent(DQNAgent):
     """
     The DQN Agent that does not sample the initial replay memories from
     random actions in the environment but from the AtariGC dataset
     """
-    def __init__(self, screen, dataset, history_len=10):
-        super().__init__(screen, mem_size=0, history_len)
-        self.memory = None # meh, but will work
-
+    def __init__(self, screen, mem_size=100000, history_len=10):
+        super().__init__(screen, mem_size, history_len)
+        
     def initialize(self, dataset, num_replays=100000):
         """
-        Initialize nothing
+        Initialize the replay buffer from a dataset
         """
+        self.memory.initialize_dataset(num_replays, dataset)
         
-    def optimize(self, optimizer, screen, batchsize, num_epochs):
+
+class HumanTrainedDQNAgent(DQNAgent):
+    """
+    The DQN Agent that first trains the model from the dataset and then
+    initializes the replay buffer by playing
+    """
+    def __init__(self, screen, mem_size=100000, history_len=10):
+        super().__init__(screen, mem_size, history_len)
+    
+    def initialize(self, solver, dataset, num_epochs=100, num_replays=10000):
         """
-        Train the model.
-
-        Everything that relates to state, action, reward, next_state comes directly from
-        the dataloader.
-
-        Returns the train loss history.
-
-        Args:
-            optimizer : the optimizer.
-            screen : wrapper for the environment
-            batchsize (int) : the size of a batch
-            num_epochs (int) : number of total steps
-            logger :
-            log_nth (int) : log every log_nth step
+        Initialize by training the model, then initialize the replay memory 
+        by playing
         """
-
-        train_loss_history = []
+        # Train the model from some dataset
+        data_train, data_valid, data_test = dataset.split(0.7, 0.2)
+        train_loader = DataLoader(data_train, batchsize=10, num_workers=4)
+        val_loader = DataLoader(data_val, batchsize=10, num_workers=4)
+        test_loader = DataLoader(data_test, batchsize=10, num_workers=4)
         
-        # split dataset into train, val, test
-        d_train, d_val, d_test = dataset.split(0.7, 0.2)
-        train_loader = DataLoader(d_train, num_workers=4, batchsize=batchsize, shuffle=True)
+        solver.train_offline(self, train_loader, val_loader, num_epochs)
         
-        for epoch in range(num_epochs):
-            for i, data in enumerate(train_loader):
-                obs, action, reward, done, next_obs = data
-
-                # convert to variables (not from dataloader, so manually wrap in
-                # torch tensor)
-                obs = Variable(torch.FloatTensor(obs))
-                action = Variable(torch.LongTensor(action))
-                reward = Variable(torch.FloatTensor(reward))
-
-                # invert done
-                non_final_mask = Variable(torch.ByteTensor((done == 0).astype(np.int)))
-
-                # Observations that dont end the sequence
-                next_obs = torch.FloatTensor([o for o in next_obs if o is not None])
-                non_final_obs = Variable(next_obs)
-
-                # Q(s_t, a) -> Q(s_t) from model and select the columns of actions taken
-                # .gather() chooses the confidence values that the model predicted
-                # at the index of the action that was originally taken
-                obs_action_values = self.model(obs).gather(1, action.unsqueeze(1))
-
-                # V(s_t+1) for all next observations
-                next_obs_values = Variable(torch.zeros(batchsize).type(torch.Tensor))
-
-                # future rewards predicted by model
-                next_obs_values[non_final_mask] = self.model(non_final_obs).max(1)[0]
-                next_obs_values = Variable(next_obs_values.data, volatile=False)
-
-                expected_obs_action_values = (next_obs_values * self.gamma) + reward
-
-                loss = self.loss(obs_action_values, expected_obs_action_values)
-                train_loss_history.append(loss.data.cpu().numpy())
-                                
-                optimizer.zero_grad()
-                loss.backward()
-                for param in self.model.parameters():
-                    param.grad.data.clamp_(-1, 1)  # clamp gradient to stay stable
-                optimizer.step()
-
-        return train_loss_history
+        solver.eval(self, test_loader)
+                
+        self.memory.initialize_playing(num_replays, agent)
