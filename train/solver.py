@@ -38,23 +38,22 @@ class Solver:
         self.train_acc_history = []
         self.val_acc_history = []
         self.val_loss_history = []
+        
+        self.online_scores = []
+        self.online_durations = []
+
 
     def init_logging(self):
         """Configure logging options."""
-        log_level_dict = {'DEBUG': 10, 'INFO': 20, 'WARNING': 30,
-                          'ERROR': 40, 'CRITICAL': 50}
+        log_level_dict = {'DEBUG': 10, 'INFO': 20, 'WARNING': 30, 'ERROR': 40, 'CRITICAL': 50}
 
         if self.log_level not in log_level_dict:
             self.log_level = log_level_dict['WARNING']
         else:
             self.log_level = log_level_dict[self.log_level]
 
-        console_logFormatter = logging.Formatter(
-            '%(name)s - %(levelname)s - %(message)s'
-        )
-        file_logFormatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
+        console_logFormatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+        file_logFormatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
         logging.basicConfig(level=logging.DEBUG, format=console_logFormatter)
 
@@ -67,12 +66,7 @@ class Solver:
         fh.setFormatter(file_logFormatter)
         self.logger.addHandler(fh)
 
-    def train_offline(self,
-                      agent,
-                      train_loader,
-                      val_loader,
-                      num_epochs=10,
-                      log_nth=0):
+    def train_offline(self, agent, train_loader, val_loader, num_epochs=10):
         """Train the agents model only with the provided data from a data loader.
 
         This involves no RL approach as it only optimizes the agent to predict
@@ -90,21 +84,23 @@ class Solver:
         self.train_acc_history = []
         self.val_acc_history = []
         self.val_loss_history = []
+        
+        self.data_loss_history = []
 
         # Initialize optimizer with the models parameters
         optim = self.optimizer(agent.model.parameters())
-        self.logger.info(
-            'Offline Training started with %d iterations in %d epochs' %
-            (len(train_loader), num_epochs)
-        )
+        self.logger.info('Offline Training started with %d iterations in %d epochs' % 
+                         (len(train_loader), num_epochs))
 
         for epoch in range(num_epochs):
-            # Adapted from dl4cv exercise 3 solver
-            no_correct_preds = 0
-            for i, (obs, action) in enumerate(train_loader, 1):
+            correct_train = 0
+            correct_val = 0
+            
+            for i, data in enumerate(train_loader, 1):
+                obs, action, _, _, _ = data
 
-                inputs, targets = Variable(obs.type(torch.FloatTensor)), \
-                    Variable(action.type(torch.LongTensor))
+                inputs = Variable(obs.type(torch.FloatTensor))
+                targets = Variable(action.type(torch.LongTensor))
 
                 if agent.model.is_cuda:
                     inputs, targets = inputs.cuda(), targets.cuda(async=True)
@@ -123,100 +119,159 @@ class Solver:
                 _, pred = torch.max(outputs, 1)     # compute prediction
 
                 if np.sum((pred == targets).data.cpu().numpy()):
-                    no_correct_preds += 1
+                    correct_train += 1
 
                 # log to console: epoch, iteration, loss, prediction, target
-                self.logger.debug(
-                    'Epoch %d/%d\t Iter %d/%d\t Loss %f' %
-                    (epoch, num_epochs, i, len(train_loader), t_loss)
-                )
+                self.logger.debug('Epoch %d/%d\t Iter %d/%d\t Loss %f' % 
+                                  (epoch, num_epochs, i, len(train_loader), t_loss))
 
-                self.logger.debug(
-                    '\t\tPrediction: %s \t Target: %s' %
-                    (str(pred.data.cpu().numpy()),
-                     str(targets.data.cpu().numpy()))
-                )
+                self.logger.debug('\t\tPrediction: %s \t Target: %s' %
+                                  (str(pred.data.cpu().numpy()),
+                                   str(targets.data.cpu().numpy())))
+            
+            for i, data in enumerate(train_loader, 1):
+                obs, action, _, _, _ = data
+                
+                inputs = Variable(obs.type(torch.FloatTensor), volatile=True)
+                targets = Variable(action.type(torch.LongTensor), volatile=True)
 
-            train_acc = no_correct_preds / len(train_loader)
+                if agent.model.is_cuda:
+                    inputs, targets = inputs.cuda(), targets.cuda(async=True)
+
+                outputs = agent.model(inputs)
+                
+                loss = self.loss(outputs, targets)
+                self.val_loss_history.append(loss.data.cpu().numpy())
+                
+                _, pred = torch.max(outputs, 1)     # compute prediction
+                
+                if np.sum((pred == targets).data.cpu().numpy()):
+                    correct_val += 1
+                    
+            train_acc = correct_train / len(train_loader)
+            val_acc = correct_val / len(val_loader)
+            
             self.train_acc_history.append(train_acc)
-
-            self.logger.info(
-                'Epoch %d \t Train Acc %s %%' %
-                (epoch, str(train_acc*100))
-            )
+            self.val_acc_history.append(train_acc)
+                
+            self.logger.info('Epoch %d \t Train/Val Acc %d/%d %%' % 
+                             (epoch, train_acc * 100, val_acc * 100))
 
         self.logger.info('Offline Training ended')
-
-    def train_online(self,
-                     agent,
-                     screen,
-                     num_epochs=10,
-                     learning_rate=0.01,
-                     log_nth=0,
-                     weight_decay=0):
-        """Let the agent play in the environment to optimize the strategy.
-
-        Args:
-            agent (agent)   : The agent that should be trained
-            screen (screen) : Screen wrapper around the environment
-            num_epochs (int): total number of training epochs
-            learning_rate (float) : the learning rate
-            log_nth (int)   : log training accuracy and loss every nth iterat°
+        
+        
+    def train_dataset(self, agent, screen, data_loader, num_epochs=10, learning_rate=0.001):
         """
-        self.logger.info('Online Training started')
-        self.logger.info('Memory.next_idx : '+str(agent.memory.next_idx))
+        Let the agent train pseudo online, without sampling from/to replay buffer
+        Args:
+            agent (agent) : The agent that should be trained
+            data_loader : torch DataLoader with training data
+            num_epochs (int) : Total number of training epochs
+            learning_rate (float) : The learning rate with which the model is udpated
+        """
+        self.logger.info('Training from Dataset started')
+        
+        self.data_loss_history = []
+        
+        optim = self.optimizer(agent.model.parameters(), learning_rate=1e-4)
+        
+        for epoch in range(num_epochs):
+            for i, data in enumerate(data_loader, 1):
+                loss = agent.optimize(optim, screen, self.batchsize, data=data).cpu().numpy()[0]
+                self.data_loss_history.append(loss)
+                
+            self.logger.info('Epoch %d/%d: Mean loss %f' % 
+                             (epoch, num_epochs, np.mean(self.data_loss_history[-len(data_loader):])
+                
+            # benchmark once per epoch
+            best, mean, dur = self.play(agent, screen, num_sequences=4)
+            self.logger.info('Epoch %d/%d: Mean score %d with %d frames' % 
+                             (epoch, num_epochs, mean, dur))
+                
+        self.logger.info('Training from Dataset finished')                
 
-        optim = self.optimizer(
-            agent.model.parameters(),
-            lr=learning_rate,
-            weight_decay=weight_decay
-        )
-        self.train_loss_history = agent.optimize(
-            optim,
-            screen,
-            self.batchsize,
-            num_epochs,
-            self.logger,
-            log_nth
-        )
+    def train_online(self, agent, screen, num_epochs=1000, learning_rate=1e-4):
+        """
+        Let the agent play in the environment to optimize the strategy
+        Args:
+            agent (agent) : The agent that should be trained
+            screen (screen) : Screen wrapper around the environment
+            num_epochs (int) : Total number of training epochs
+            learning_rate (float) : The learning rate with which the model is udpated
+        """
+        # reset online histories
+        self.online_scores = []
+        self.online_durations = []
+
+        optim = self.optimizer(agent.model.parameters(), learning_rate)
+
+        # create a temporary nework to increase stability
+        tmp_model = deepcopy(agent.model)
+        tmp_model.load_state_dict(agent.model.state_dict())
+        update_count = 0
+
+        # move to gpu if applicable
+        if agent.model.is_cuda:
+            tmp_model.cuda()
+
+        self.logger.info('Online Training started')
+
+        for i in range(num_epochs):
+            duration = 0
+            score = 0
+            done = False
+            losses = []
+            while not done:
+                # Make a step in the environment
+                _, reward, _, done = agent.step(screen, i, num_epochs, save=True)
+                score += reward
+                duration += 1
+
+                self.logger.debug("Epoch %d/%d - Iteration %d - Score: %d" % (i, num_epochs, duration, score))
+
+                # optimize model by sampling from replay memory
+                
+                loss = agent.optimize(optim, screen, self.batchsize, tmp_model)
+                losses.append(loss)
+
+                self.logger.debug("Epoch %d/%d - Iteration %d - Loss: %f" % (i, num_epochs, duration, loss))
+
+                update_count += 1
+
+                if update_count % update_step == 0:
+                    agent.model.load_state_dict(tmp_model.state_dict())
+                    update_count = 0
+
+            self.logger.info('Epoch %d/%d - Score %d with Duration %d (Loss %f)' %
+                                 (i, num_epochs, score, duration, np.mean(losses)))
 
         self.logger.info('Online Training finished')
 
-    def play(self, agent, screen, num_sequences=100, save=False):
-        """Let the agent play for benchmarking.
 
-        Args:
-            agent (agent)   : The agent that should be trained
-            screen (screen) : Screen wrapper around the environment
+    def play(self, agent, screen, num_sequences=1, epoch=1, max_epoch=1, save=False):
         """
-        self.logger.info('Wanna play a game? - Game started!')
+        Let the agent play to benchmark
+        agent (agent)   : The agent that should be trained
+        screen (screen) : Screen wrapper around the environment
+        """
+
+        self.logger.debug('Wanna play a game? - Game started!')
 
         best_score = 0
         scores = []
         durations = []
 
         for i in range(num_sequences):
-            score, duration = agent.play(screen, save=save)
+            score, duration = agent.play(screen, epoch, max_epoch, save=save)
             scores.append(score)
             durations.append(duration)
+
             self.logger.debug('Score %d after %d frames' % (score, duration))
 
             if score > best_score:
                 self.logger.debug('New Highscore %d' % (score))
                 best_score = score
 
-            if i % int(num_sequences / 10) == 0:
-                self.logger.info(
-                    '%d/%d Highscore is %d' %
-                    (i, num_sequences, best_score)
-                )
+        self.logger.debug('Game ended')
 
-        self.logger.info('Mean score %f' % (np.mean(scores)))
-        self.logger.info('Mean duration %f' % (np.mean(duration)))
-
-        self.logger.info(
-            'Highscore %d out of %d sequences' % (best_score, num_sequences)
-        )
-        self.logger.info('Game ended')
-
-        return best_score, np.mean(scores), np.mean(duration)
+        return best_score, np.mean(scores), np.mean(durations)
