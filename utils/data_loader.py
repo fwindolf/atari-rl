@@ -221,15 +221,25 @@ class AtariGrandChallengeDataset(Dataset):
         Get a sequence of history_len frames, and the associated action, reward and next_frame
         with the observation and next_frames encoded like in screen
         
-        return (tuple): observation (history_len * frame.shape), action
+        return (tuple): observation (history_len * frame.shape), action, reward, done, next_observation
         """        
         observation, action, reward, done, next_observation = self.__getsequence(idx)
         
-        obs = np.empty([len(observation)] + list(self.screen.get_shape()[1:]), dtype='float')
+        obs = np.empty([len(observation)] + list(self.screen.get_shape()[1:]), dtype=np.float32)
         for o_idx in range(len(observation)):
-            obs[o_idx] = self.screen.output_float(observation[o_idx])
+            obs[o_idx] = self.screen.output_float(observation[o_idx]) 
+         
+        action = torch.IntTensor(action)
+        reward = np.array(reward, dtype=np.int32)
+        done = np.array(done, dtype=np.uint8)
         
-        return obs, action
+        next_obs = np.empty([len(next_observation)] + list(self.screen.get_shape()[1:]), dtype=np.float32)
+        for o_idx in range(len(next_observation)):
+            next_obs[o_idx] = self.screen.output_float(next_observation[o_idx])
+            
+        print(action)
+        
+        return obs, action, reward, done, next_obs
         
         
     

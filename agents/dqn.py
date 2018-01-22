@@ -19,7 +19,7 @@ class DQNAgent(AgentBase):
                  loss=F.smooth_l1_loss):
         """Initialize agent."""
         super().__init__(screen)
-        
+        self.history_len = history_len
         self.memory = ReplayBuffer(mem_size, history_len, screen)
         self.model = DQN(history_len, screen.get_actions())
 
@@ -47,26 +47,34 @@ class DQNAgent(AgentBase):
             observation : Any number of frames in screen output format
             (greyscale)
         """
-        num_channels = 1
-        history_len = self.memory.get_history_len()
-        if len(observation.shape) > 2:
-            num_channels = observation.shape[2]
-
-        assert (num_channels < history_len)
+        num_channels = 1      
+        if len(observation.shape) == 4:
+            num_channels = observation.shape[1]  # Batchsize, Channels, H, W
+        elif len(observation.shape) == 3:
+            num_channels = observation.shape[0]  # Channels, H, W
+        
+        assert (num_channels <= self.history_len)
 
         if observation.dtype.name == 'uint8':
             observation = observation.astype('float') / 255.
 
-        if num_channels < history_len:
-            num_missing = history_len - num_channels
+        if num_channels < self.history_len:
+            num_missing = self.history_len - num_channels
             observation = np.concatenate((
                 np.zeros((*observation.shape[0:2], num_missing)),
                 np.expand_dims(observation, 2)), axis=2)
+        
+        observation = torch.FloatTensor(observation)
+        
+        if len(observation.shape) == 3:
+            observation = observation.unsqueeze(0)
+        
+        assert(len(observation.shape) == 4)       
+        
+        return observation
 
-        # make N,c,h,w
-        return torch.FloatTensor(observation).permute(2, 0, 1).unsqueeze(0)
 
-     def next_action(self, observation, epoch, max_epochs, epsilon=0.9):
+    def next_action(self, observation, epoch, max_epochs, epsilon=0.9):
         """
         Choose the next action to take based on an observation
         
@@ -111,6 +119,10 @@ class DQNAgent(AgentBase):
             data = self.memory.sample(batchsize)
             
         obs, action, reward, done, next_obs = data
+        
+        print(obs)
+        print(action)
+        print(next_obs)
 
         # convert to variables (not from dataloader, so manually wrap in
         # torch tensor)
@@ -197,7 +209,7 @@ class DQNAgent(AgentBase):
         
         return state, reward, action, done
 
-def play(self, screen, epoch, max_epoch, max_duration=100000, save=False):
+    def play(self, screen, epoch, max_epoch, max_duration=10000, save=False):
         """
         Play a sequence
         
@@ -208,6 +220,7 @@ def play(self, screen, epoch, max_epoch, max_duration=100000, save=False):
             max_duration (int) : number of frames to be played 
             save (bool) : Write to replay memory
         """
+        
         # while game not lost/terminated
         done = False        
         while not done and self.dur < max_duration:            

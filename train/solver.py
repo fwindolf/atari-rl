@@ -173,7 +173,7 @@ class Solver:
         
         self.data_loss_history = []
         
-        optim = self.optimizer(agent.model.parameters(), learning_rate=1e-4)
+        optim = self.optimizer(agent.model.parameters(), learning_rate)
         
         for epoch in range(num_epochs):
             for i, data in enumerate(data_loader, 1):
@@ -181,7 +181,7 @@ class Solver:
                 self.data_loss_history.append(loss)
                 
             self.logger.info('Epoch %d/%d: Mean loss %f' % 
-                             (epoch, num_epochs, np.mean(self.data_loss_history[-len(data_loader):])
+                             (epoch, num_epochs, np.mean(self.data_loss_history[-len(data_loader):])))
                 
             # benchmark once per epoch
             best, mean, dur = self.play(agent, screen, num_sequences=4)
