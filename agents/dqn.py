@@ -120,22 +120,20 @@ class DQNAgent(AgentBase):
             
         obs, action, reward, done, next_obs = data
         
-        print(obs)
-        print(action)
-        print(next_obs)
-
         # convert to variables (not from dataloader, so manually wrap in
         # torch tensor)
-        obs = Variable(torch.FloatTensor(obs))
-        action = Variable(torch.LongTensor(action))
-        reward = Variable(torch.FloatTensor(reward))
+        obs = Variable(obs)
+        action = Variable(action)
+        reward = Variable(reward.float())
 
-        # invert done
-        non_final_mask = Variable(torch.ByteTensor((done == 0).astype(np.int)))
-        
+        # mask of non final next_obs 
+        non_final_mask = done.int().eq(0).nonzero().squeeze(1) # nonzero() adds dimension
+
         # Observations that dont end the sequence
-        next_obs = torch.FloatTensor([o for o in next_obs if o is not None])
-        non_final_obs = Variable(next_obs)
+        non_final_obs = Variable(next_obs[non_final_mask, :])
+        
+        # future predicted rewards
+        next_obs_values = Variable(torch.zeros(reward.shape))
         
         if self.model.is_cuda:
             obs = obs.cuda()
@@ -143,21 +141,18 @@ class DQNAgent(AgentBase):
             reward = reward.cuda()
             non_final_mask = non_final_mask.cuda()
             non_final_obs = non_final_obs.cuda()
-
+            next_obs_values = next_obs_values.cuda()
+        
         # Q(s_t, a) -> Q(s_t) from model and select the columns of actions taken
         obs_action_values = self.model(obs).gather(1, action.unsqueeze(1))
-
-        # V(s_t+1) for all next observations
-        next_obs_values = Variable(torch.zeros(batchsize).type(torch.Tensor))
 
         # future rewards predicted by model
         next_obs_values[non_final_mask] = self.model(non_final_obs).max(1)[0]
         next_obs_values = Variable(next_obs_values.data, volatile=False)
-
+        
         expected_obs_action_values = (next_obs_values * self.gamma) + reward
 
         loss = self.loss(obs_action_values, expected_obs_action_values)
-        train_loss_history.append(loss.data.cpu().numpy())
 
         optimizer.zero_grad()
         loss.backward()
@@ -165,7 +160,7 @@ class DQNAgent(AgentBase):
             param.grad.data.clamp_(-1, 1)  # clamp gradient to stay stable
         optimizer.step()
 
-        return loss.cpu().numpy()[0]
+        return loss.data.cpu().numpy()
     
     def step(self, screen, epoch, max_epochs, save=False):
         """

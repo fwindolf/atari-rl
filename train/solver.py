@@ -12,11 +12,7 @@ class Solver:
     environment) or offline (using data generated from games).
     """
 
-    def __init__(self,
-                 optimizer,
-                 loss,
-                 batchsize=100,
-                 logfile_path='logfile.log',
+    def __init__(self, optimizer, loss, batchsize=100, logfile_path='logfile.log',
                  log_level='WARNING'):
         """Create a new Solver class and start logging.
 
@@ -175,9 +171,9 @@ class Solver:
         
         optim = self.optimizer(agent.model.parameters(), learning_rate)
         
-        for epoch in range(num_epochs):
+        for epoch in range(num_epochs):                        
             for i, data in enumerate(data_loader, 1):
-                loss = agent.optimize(optim, screen, self.batchsize, data=data).cpu().numpy()[0]
+                loss = agent.optimize(optim, screen, self.batchsize, data=data)
                 self.data_loss_history.append(loss)
                 
             self.logger.info('Epoch %d/%d: Mean loss %f' % 
@@ -187,6 +183,9 @@ class Solver:
             best, mean, dur = self.play(agent, screen, num_sequences=4)
             self.logger.info('Epoch %d/%d: Mean score %d with %d frames' % 
                              (epoch, num_epochs, mean, dur))
+            
+            # advance trajectory
+            data_loader.dataset.next()
                 
         self.logger.info('Training from Dataset finished')                
 
