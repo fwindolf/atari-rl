@@ -204,15 +204,6 @@ class Solver:
 
         optim = self.optimizer(agent.model.parameters(), learning_rate)
 
-        # create a temporary nework to increase stability
-        tmp_model = deepcopy(agent.model)
-        tmp_model.load_state_dict(agent.model.state_dict())
-        update_count = 0
-
-        # move to gpu if applicable
-        if agent.model.is_cuda:
-            tmp_model.cuda()
-
         self.logger.info('Online Training started')
 
         for i in range(num_epochs):
@@ -228,18 +219,11 @@ class Solver:
 
                 self.logger.debug("Epoch %d/%d - Iteration %d - Score: %d" % (i, num_epochs, duration, score))
 
-                # optimize model by sampling from replay memory
-                
-                loss = agent.optimize(optim, screen, self.batchsize, tmp_model)
+                # optimize model by sampling from replay memory                
+                loss = agent.optimize(optim, screen, self.batchsize)
                 losses.append(loss)
 
                 self.logger.debug("Epoch %d/%d - Iteration %d - Loss: %f" % (i, num_epochs, duration, loss))
-
-                update_count += 1
-
-                if update_count % update_step == 0:
-                    agent.model.load_state_dict(tmp_model.state_dict())
-                    update_count = 0
 
             self.logger.info('Epoch %d/%d - Score %d with Duration %d (Loss %f)' %
                                  (i, num_epochs, score, duration, np.mean(losses)))
