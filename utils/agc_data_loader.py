@@ -106,9 +106,16 @@ class AGCDataSet(Dataset):
         return sample
     
     def next(self):
+        """
+        Switch to the next trajectory folder
+        """
+        self.screens[self.game][self.trajectory] = dict() # delete screens to save memory
         self.trajectory += 1
         if self.trajectory not in self.data_set.trajectories[self.game]:
             self.trajectory = 0 # begin from the front
+            
+        self.screens[self.game][self.trajectory] = dict() 
+        
             
     def raw(self, idx):
         raise NotImplemented()
