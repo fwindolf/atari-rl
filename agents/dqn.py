@@ -7,7 +7,7 @@ import torch
 
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
-import torch.nn.functional as F
+from torch.nn import CrossEntropyLoss
 
 from utils.replay_buffer import ReplayBuffer
 
