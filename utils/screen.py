@@ -81,7 +81,7 @@ class Uint8Wrapper(gym.ObservationWrapper):
     def _observation(self, frame):
         if np.issubdtype(frame.dtype, np.integer):
             pass
-        elif np.issubdtype(frame.dtype, np.float):
+        elif np.issubdtype(frame.dtype, np.floating):
             frame *= 255  # convert first
         
         return frame.astype('uint8')
