@@ -16,12 +16,15 @@ class DQNAgent(AgentBase):
     """A DQN agent implementation according to the DeepMind paper."""
 
     def __init__(self, screen, mem_size=100000, history_len=10, gamma=0.999,
-                 loss=F.smooth_l1_loss):
+                 loss=CrossEntropyLoss()):
         """Initialize agent."""
         super().__init__(screen)
         self.history_len = history_len
         self.memory = ReplayBuffer(mem_size, history_len, screen)
         self.model = DQN(history_len, screen.get_actions())
+        
+        if torch.cuda.is_available():
+            self.model.cuda()
 
         self.gamma = gamma
         self.loss = loss
