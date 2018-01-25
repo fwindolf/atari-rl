@@ -178,8 +178,8 @@ class Solver:
                 
             self.logger.info('Epoch %d/%d: Mean loss %f' % 
                              (epoch, num_epochs, np.mean(self.data_loss_history[-len(data_loader):])))
-                
-            if epoch % 100 == 0: # benchmark every 100 epochs
+            
+            if epoch % 100 == 99: # benchmark every 100 epochs
                 best, mean, dur = self.play(agent, screen, num_sequences=4)
                 self.logger.info('Epoch %d/%d: Mean score %d with %d frames' % 
                              (epoch, num_epochs, mean, dur))
