@@ -30,10 +30,10 @@ class DQN(ModelBase):
         self.fc4 = nn.Linear(7 * 7 * 32, 512)
         self.fc5 = nn.Linear(512, num_actions)
 
-        if self.is_cuda:
-            self.cuda()
-
     def forward(self, x):
+        if self.is_cuda:
+            x= x.cuda()
+            
         x = F.relu(self.dp1(self.bn1(self.conv1(x))))
         x = F.relu(self.dp2(self.bn2(self.conv2(x))))
         x = F.relu(self.dp3(self.bn3(self.conv3(x))))
