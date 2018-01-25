@@ -92,7 +92,7 @@ class DQNAgent(AgentBase):
         if np.random.rand() < cur_eps:
             return self.screen.sample_action() # random action from action space
         else:            
-            observation = Variable(self.__encode_model_input(observation), volatile=True)                
+            observation = Variable(self.__encode_model_input(observation), volatile=True)
             action = self.model.predict(observation).data.cpu().numpy()
             return action
   
@@ -146,17 +146,23 @@ class DQNAgent(AgentBase):
             non_final_obs = non_final_obs.cuda()
             next_obs_values = next_obs_values.cuda()
         
-        # Q(s_t, a) -> Q(s_t) from model and select the columns of actions taken
+        # q values predicted by model for observation and select the columns of actions taken
         obs_action_values = self.model(obs).gather(1, action.unsqueeze(1))
 
-        # future rewards predicted by model
+        # future rewards predicted by model (when sequences dont end)
         next_obs_values[non_final_mask] = self.model(non_final_obs).max(1)[0]
         next_obs_values = Variable(next_obs_values.data, volatile=False)
         
+        # To not mess up the loss
+        next_obs_values.volatile = False
+        
+        # Expected q values from observation
         expected_obs_action_values = (next_obs_values * self.gamma) + reward
 
+        # Loss is the difference between the calculated and the predicted q values
         loss = self.loss(obs_action_values, expected_obs_action_values)
 
+        # Apply to model
         optimizer.zero_grad()
         loss.backward()
         for param in self.model.parameters():
