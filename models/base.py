@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+import os
+
 class ModelBase(nn.Module):
     """
     Base module for models 
@@ -32,8 +34,15 @@ class ModelBase(nn.Module):
         Inputs:
         - path: path string
         """
-        print('Saving model... %s' % path)
-        torch.save(self.model, path) 
+        if path[0] == '/':
+            path = path[1:] # remove leading / because we want to write to subfolder
+            
+        directory = os.path.join(os.getcwd(), path[:path.rfind('/')]) 
+        
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            
+        torch.save(self, path) 
         
     def predict(self, observation):
         """
