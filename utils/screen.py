@@ -99,34 +99,33 @@ class CartPoleScreenWrapper(gym.ObservationWrapper):
         self.screen_width=600
         
     def __get_cart_location(self):
-        world_width = self.env.x_threshold * 2
+        env = self.env.unwrapped
+        world_width = env.x_threshold * 2
         scale = self.screen_width / world_width
-        return int(self.env.state[0] * scale + self.screen_width / 2.0) # MIDDLE OF CART
+        return int(env.state[0] * scale + self.screen_width / 2.0) # MIDDLE OF CART
     
     def __get_screen(self):
         # needs a display!
         screen = self.env.render(mode='rgb_array')
         screen = screen[:, 160:320]
-       
+
         view_width = 320
-        cart_location = get_cart_location()
+        cart_location = self.__get_cart_location()
         if cart_location < view_width // 2:
             slice_range = slice(view_width)
-        elif cart_location > (screen_width - view_width // 2):
+        elif cart_location > (self.screen_width - view_width // 2):
             slice_range = slice(-view_width, None)
         else:
             slice_range = slice(cart_location - view_width // 2,
                                 cart_location + view_width // 2)
-         # Strip off the edges, so that we have a square image centered on a cart
-        screen = screen[:, :, slice_range]
-        # Convert to float, rescale, convert to torch tensor
-        # (this doesn't require a copy)
-        screen = np.ascontiguousarray(screen, dtype=np.float32) / 255
-        
+
         return screen
     
     def _observation(self, frame):
-        return self.__get_screen()
+        if frame is None or len(frame) == 4:
+            return self.__get_screen()
+        else:
+            return frame
     
     def output(self, frame):
         frame = self.env.output(frame) # recursion level towards env
@@ -144,6 +143,7 @@ class ScreenBase:
         env (gym)   : OpenAI gym environment that should be wrapped
         """
         self.env = gym.make(env_name).env # get rid of the TimeLimit  
+        self.env = OutputWrapper(self.env) # make 'output' has a final recursion (kinda hacky..)
         
     def reset(self):
         return self.env.reset()
@@ -218,7 +218,6 @@ class ScreenBase:
 class SpaceInvaderScreen(ScreenBase):
     def __init__(self, dim=(80,80), crop=(20, 10, 4, 16), greyscale=True):
         super().__init__('SpaceInvaders-v0')  
-        self.env = OutputWrapper(self.env) # make 'output' has a final recursion (kinda hacky..)
         
         if greyscale:
             self.env = GreyscaleWrapper(self.env)
@@ -231,18 +230,18 @@ class SpaceInvaderScreen(ScreenBase):
         
         
 class CartPoleScreen(ScreenBase):
-    def __init__(self, dim=(80,80), crop=None):
+    def __init__(self, dim=(80,80), crop=None, greyscale=True):
         super().__init__('CartPole-v0')
         
         self.env = CartPoleScreenWrapper(self.env)
         
-        if crop:
-            self.env = CropWrapper(self.env, crop) # Crop first so we don't potentially lose resolution        
         if dim:
             self.env = RescaleWrapper(self.env, dim)
-            
+        if greyscale:
+            self.env = GreyscaleWrapper(self.env)
+        
         self.env = Uint8Wrapper(self.env)
-
+        
         
             
         
