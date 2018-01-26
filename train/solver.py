@@ -12,7 +12,7 @@ class Solver:
     environment) or offline (using data generated from games).
     """
 
-    def __init__(self, optimizer, loss, batchsize=100, logfile_path='logfile.log',
+    def __init__(self, optimizer, loss, batchsize=100, playtime=10, logfile_path='logfile.log',
                  log_level='WARNING'):
         """Create a new Solver class and start logging.
 
@@ -24,6 +24,7 @@ class Solver:
         self.optimizer = optimizer
         self.loss = loss
         self.batchsize = batchsize
+        self.playtime = playtime
 
         self.log_level = log_level.upper()
         self.logfile_path = logfile_path
@@ -180,7 +181,7 @@ class Solver:
                              (epoch, num_epochs, np.mean(self.data_loss_history[-len(data_loader):])))
             
             if epoch % 100 == 99: # benchmark every 100 epochs
-                best, mean, dur = self.play(agent, screen, num_sequences=4)
+                best, mean, dur = self.play(agent, screen, num_sequences=self.playtime)
                 self.logger.info('Epoch %d/%d: Mean score %d with %d frames' % 
                              (epoch, num_epochs, mean, dur))
             
