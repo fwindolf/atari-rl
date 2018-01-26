@@ -246,4 +246,32 @@ class ReplayBuffer():
         self.reward[idx] = reward
         self.done[idx] = done
         
+
+        
+class SimpleReplayBuffer():
+    def __init__(self, size):
+        self.size = size
+        
+        self.memory = []
+        self.transition = None
+        
+        
+    def store_frame(self, frame):
+        self.transition = (frame)
+        
+    def store_effect(self, action, reward, done):
+        self.memory.append(self.transition + (action, reward, done))
+        if len(self.memory) > self.size:
+            del self.memory[0]
+            
+        self.transition = None        
+        
+    def can_sample(self, batchsize):
+        return len(self.memory) >= batchsize
+    
+    def sample(self, batchsize):
+        return random.sample(self.memory, batchsize)
+    
+    def __len__(self):
+        return len(self.memory)
         

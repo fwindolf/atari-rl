@@ -4,7 +4,7 @@ import torch
 import sys
 
 from torch import optim
-from torch.nn import CrossEntropyLoss, SmoothL1Loss
+from torch.nn import CrossEntropyLoss, SmoothL1Loss, MSELoss
 from torch.utils.data import DataLoader
 
 from torchvision import transforms, utils
@@ -14,6 +14,8 @@ from datetime import datetime
 from agents.dqn import DQNAgent
 from utils.screen import SpaceInvaderScreen, CartPoleScreen
 from utils.agc_data_loader import AGCDataSet
+from utils.replay_buffer import SimpleReplayBuffer, ReplayBuffer
+from models.dqn import DQN, DQNLinear, DQNCapsNet
 from train.solver import Solver
 
 
@@ -66,8 +68,22 @@ def main(args):
     
     if args.agent == "dqn":
         # TODO different models for dqn
+        
+        # Replay Buffer
+        replay_mem = None
+        if args.agent_simple:
+            if args.argent_hist > 1:
+                logger.error("Simple Replay Buffer can only be used with single frame observations")
+                exit(-3)
+                
+            replay_mem = SimpleReplayBuffer(args.agent_mem)
+        else:
+            replay_mem = ReplayBuffer(args.agent_mem, args.agent_hist, screen)
+        
+        # Model
+        model = None
         if args.agent_model == "cnn":
-            agent = DQNAgent(screen, history_len=args.agent_hist, mem_size=args.agent_mem, loss=loss)
+            model = DQN(args.agent_hist, screen.get_actions())
         elif args.agent_model == "caps":
             raise NotImplemented()
         elif args.agent_model == "linear":
@@ -75,12 +91,15 @@ def main(args):
         else:
             logger.error("Agent model type not supported!")
             exit(-3)
-          
-    elif args.aget == "reinforce":
+            
+        agent = DQNAgent(screen, history_len=args.agent_hist, gamma=0.99, loss=loss,
+                         memory=replay_mem, model=model)      
+        
+    elif args.agnet == "reinforce":
         raise NotImplemented()
-    elif args.aget == "a3c":
+    elif args.agent == "a3c":
         raise NotImplemented()
-    elif args.aget == "pg":
+    elif args.agent == "pg":
         raise NotImplemented()
     else:
         logger.error("Agent type not supported!")
@@ -157,6 +176,8 @@ if __name__ == "__main__":
                         default=4, help="The number of frames in an observation")
     parser.add_argument("-al", "--agent-loss", type=str, choices=["huber", "l2", "crossentropy"],
                         default="crossentropy", help="The loss used for optimizing the agents model")
+    parser.add_argument("-as", "--agent-simple", 
+                        action="store_true", help="Use a simple replay memory")
 
 
     # Training

@@ -15,13 +15,19 @@ from utils.replay_buffer import ReplayBuffer
 class DQNAgent(AgentBase):
     """A DQN agent implementation according to the DeepMind paper."""
 
-    def __init__(self, screen, mem_size=100000, history_len=10, gamma=0.999,
-                 loss=CrossEntropyLoss()):
+    def __init__(self, screen, history_len=10, gamma=0.999, loss=CrossEntropyLoss(), memory=None, model=None):
         """Initialize agent."""
         super().__init__(screen)
         self.history_len = history_len
-        self.memory = ReplayBuffer(mem_size, history_len, screen)
-        self.model = DQN(history_len, screen.get_actions())
+        if memory is None:
+            self.memory = ReplayBuffer(100000, history_len, screen)
+        else:
+            self.memory = memory
+
+        if model is None:
+            self.model = DQN(history_len, screen.get_actions())
+        else:
+            self.model = model            
         
         if torch.cuda.is_available():
             self.model.cuda()
@@ -75,7 +81,14 @@ class DQNAgent(AgentBase):
         assert(len(observation.shape) == 4)       
         
         return observation
-
+    
+    
+    def __epsilon(self, epsilon, epsilon_end=0.05, epoch=1, max_epochs=1):
+        """
+        Linearily decay epsilon from epsilon to epsilon_end
+        """
+        eps_step = (epsilon - epsilon_end) / max_epochs
+        return epsilon - epoch * eps_step
 
     def next_action(self, observation, epoch, max_epochs, epsilon=0.9):
         """
@@ -87,7 +100,7 @@ class DQNAgent(AgentBase):
         observation : sequence of frames in screen output format        
         """        
         # decay epsilon
-        cur_eps = max(0, epsilon * (1 - (1.0/0.8 * min(1, epoch/max_epochs))))  
+        cur_eps = self.__epsilon(epsilon, epoch=epoch, max_epochs=max_epochs)  
         
         if np.random.rand() < cur_eps:            
             action = self.screen.sample_action() # random action from action space
