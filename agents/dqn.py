@@ -89,12 +89,13 @@ class DQNAgent(AgentBase):
         # decay epsilon
         cur_eps = max(0, epsilon * (1 - (1.0/0.8 * min(1, epoch/max_epochs))))  
         
-        if np.random.rand() < cur_eps:
-            return self.screen.sample_action() # random action from action space
+        if np.random.rand() < cur_eps:            
+            action = self.screen.sample_action() # random action from action space
         else:            
             observation = Variable(self.__encode_model_input(observation), volatile=True)
-            action = self.model.predict(observation).data.cpu().numpy()
-            return action
+            action = self.model.predict(observation).data.cpu().numpy().squeeze()
+            
+        return action
   
     def optimize(self, optimizer, screen, batchsize, data=None):
         """Train the model.
@@ -123,12 +124,11 @@ class DQNAgent(AgentBase):
             
         obs, action, reward, done, next_obs = data
         
-        # convert to variables (not from dataloader, so manually wrap in
-        # torch tensor)
-        obs = Variable(obs)
-        action = Variable(action)
+        # convert to variables (not from dataloader, so manually wrap in torch tensor)
+        obs = Variable(obs.float())
+        action = Variable(action.long()) 
         reward = Variable(reward.float())
-
+        
         # mask of non final next_obs 
         non_final_mask = done.int().eq(0).nonzero().squeeze(1) # nonzero() adds dimension
 
@@ -136,7 +136,7 @@ class DQNAgent(AgentBase):
         non_final_obs = Variable(next_obs[non_final_mask, :])
         
         # future predicted rewards
-        next_obs_values = Variable(torch.zeros(reward.shape))
+        next_obs_values = Variable(torch.zeros(reward.data.shape))
         
         if self.model.is_cuda:
             obs = obs.cuda()
@@ -161,7 +161,7 @@ class DQNAgent(AgentBase):
 
         # Loss is the difference between the calculated and the predicted q values
         loss = self.loss(obs_action_values, expected_obs_action_values)
-
+        
         # Apply to model
         optimizer.zero_grad()
         loss.backward()
