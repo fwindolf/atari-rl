@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+import torch
 from utils.transition import Transition
 
 class ReplayBuffer():
@@ -197,10 +197,17 @@ class ReplayBuffer():
         
         # generate samples with history_len size that encode until done state
         obs = np.concatenate([self.__encode_observation(idx)[np.newaxis, :] for idx in idxs], 0) #(batchsize, history_len, h, w)
-        act = self.action[idxs]
-        rew = self.reward[idxs]
+        act = np.asarray(self.action[idxs], dtype=np.int32)
+        rew = np.asarray(self.reward[idxs], dtype=np.float32)
         next_obs = np.concatenate([self.__encode_observation(idx + 1)[np.newaxis, :] for idx in idxs], 0) 
-        done = np.array([1.0 if self.done[idx] else 0.0 for idx in idxs], dtype=np.float32)
+        done = np.array([1 if self.done[idx] else 0 for idx in idxs], dtype=np.uint8)
+        
+        # Convert to tensors
+        obs = torch.FloatTensor(obs)
+        act = torch.from_numpy(act)
+        rew = torch.from_numpy(rew)
+        next_obs = torch.FloatTensor(next_obs)
+        done = torch.ByteTensor(done)
         
         return (obs, act, rew, done, next_obs)
     
