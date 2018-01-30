@@ -23,7 +23,7 @@ EPS_DECAY = 200  # e-greedy threshold decay
 GAMMA = 0.8  # Q-learning discount factor
 LR = 0.001  # NN optimizer learning rate
 HIDDEN_LAYER = 256  # NN hidden layer size
-BATCH_SIZE = 64  # Q-learning batch size
+BATCH_SIZE = 10  # Q-learning batch size
 
 # if gpu is to be used
 use_cuda = torch.cuda.is_available()
@@ -63,7 +63,7 @@ class Network(nn.Module):
 
 
 env = gym.make('CartPole-v0')
-env = wrappers.Monitor(env, './tmp/cartpole-v0-1')
+env = wrappers.Monitor(env, './tmp/cartpole-v0-1', force=True)
 
 model = Network()
 if use_cuda:
@@ -78,9 +78,12 @@ def select_action(state):
     global steps_done
     sample = random.random()
     eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps_done / EPS_DECAY)
+    print(steps_done, EPS_DECAY, eps_threshold)
     steps_done += 1
     if sample > eps_threshold:
-        return model(Variable(state, volatile=True).type(FloatTensor)).data.max(1)[1].view(1, 1)
+        state = Variable(state, volatile=True).type(FloatTensor)
+        return model(state).data.max(1)[1].view(1, 1)
+        
     else:
         return LongTensor([[random.randrange(2)]])
 
@@ -130,13 +133,15 @@ def learn():
 
     # current Q values are estimated by NN for all actions
     current_q_values = model(batch_state).gather(1, batch_action)
+
     # expected Q values are estimated from actions which gives maximum Q value
     max_next_q_values = model(batch_next_state).detach().max(1)[0]
-    expected_q_values = batch_reward + (GAMMA * max_next_q_values)
+    expected_q_values = batch_reward + (GAMMA * max_next_q_values)    
 
     # loss is measured from error between current and newly expected Q values
     loss = F.smooth_l1_loss(current_q_values, expected_q_values)
-
+    print(loss.data.cpu().numpy())
+    
     # backpropagation of loss to NN
     optimizer.zero_grad()
     loss.backward()
