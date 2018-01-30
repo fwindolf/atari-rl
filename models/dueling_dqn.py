@@ -1,5 +1,6 @@
 from models.base import ModelBase
 
+import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
@@ -30,7 +31,7 @@ class Dueling_DQN(ModelBase):
 
         self.relu = nn.ReLU()
 
-        if self.is_cuda():
+        if torch.cuda.is_available():
             self.cuda()
 
 
