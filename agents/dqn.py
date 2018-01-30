@@ -47,7 +47,20 @@ class DQNAgent(AgentBase):
         Args:
             num_replays (int) : the number of replays.
         """
-        self.memory.initialize_random(num_replays)
+        initialized = False
+        while(not initialized):
+            # run sequences
+            self.screen.reset()
+            done = False
+            while(not done):                
+                action = self.screen.sample_action() # random action
+                obs, reward, done = self.screen.input(action)                
+                idx = self.memory.store_frame(obs)
+                self.memory.store_effect(idx, action, reward, done)
+                    
+                if self.memory.num_transitions >= num_replays:        
+                    initialized = True
+                    break  
 
     def __encode_model_input(self, observation):
         """Encode the observation in a way that the model can use it.
@@ -77,9 +90,7 @@ class DQNAgent(AgentBase):
         
         if len(observation.shape) == 3:
             observation = observation.unsqueeze(0)
-        
-        assert(len(observation.shape) == 4)       
-        
+            
         return observation
     
     
