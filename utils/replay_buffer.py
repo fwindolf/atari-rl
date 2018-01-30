@@ -221,26 +221,57 @@ class ReplayBuffer():
 class SimpleReplayBuffer():
     def __init__(self, size):
         self.size = size
-        
-        self.memory = []
-        self.transition = None
-        
+        self.memory = np.empty(size, dtype=tuple)
+        self.next_idx = 0
+        self.num_transitions = 0
         
     def store_frame(self, frame):
-        self.transition = (frame)
+        self.memory[self.next_idx] = (frame)
+        return self.next_idx
         
-    def store_effect(self, action, reward, done):
-        self.memory.append(self.transition + (action, reward, done))
-        if len(self.memory) > self.size:
-            del self.memory[0]
-            
-        self.transition = None        
+    def store_effect(self, idx, action, reward, done):
+        frame = self.memory[idx]
+        self.memory[idx] = (frame, action, reward, done)
+        self.num_transitions = min(self.num_transitions + 1, self.size)
+        self.next_idx += 1
+        if self.next_idx >= self.size:
+            self.next_idx = 0
         
     def can_sample(self, batchsize):
         return len(self.memory) >= batchsize
     
     def sample(self, batchsize):
-        return random.sample(self.memory, batchsize)
+        idxs = np.random.choice(range(self.num_transitions), batchsize, replace=False)
+        
+        frames = []
+        actions = []
+        rewards = []
+        dones = []
+        next_frames = []
+        for idx in idxs:
+            frame, action, reward, done = self.memory[idx]
+            next_frame = np.zeros(frame.shape)
+            if not done:
+                sample = self.memory[(idx + 1) % self.size]
+                if sample is not None:
+                    next_frame, _, _, _ = sample
+            
+            frames.append(frame)
+            actions.append(action)
+            rewards.append(reward)
+            dones.append(done)
+            next_frames.append(next_frame)
+        
+        obs = torch.FloatTensor(frames)
+        act = torch.LongTensor(actions)
+        rew = torch.FloatTensor(rewards)
+        next_obs = torch.FloatTensor(next_frames)
+        done = torch.ByteTensor(dones)
+        
+        return (obs, act, rew, done, next_obs)
+    
+    def get_history_len(self):
+        return 1
     
     def __len__(self):
         return len(self.memory)
