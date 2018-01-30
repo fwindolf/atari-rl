@@ -12,7 +12,7 @@ from torchvision import transforms, utils
 from datetime import datetime
 
 from agents.dqn import DQNAgent
-from utils.screen import SpaceInvaderScreen, CartPoleScreen
+from utils.screen import SpaceInvaderScreen, CartPoleScreen, CartPoleBasic
 from utils.agc_data_loader import AGCDataSet
 from utils.replay_buffer import SimpleReplayBuffer, ReplayBuffer
 from models.dqn import DQN, DQNLinear, DQNCapsNet
@@ -35,6 +35,9 @@ def main(args):
     elif args.game == "cartpole":
         logger.warn("CartPoleScreen needs an active/configured Display to work")
         screen = CartPoleScreen()
+    elif args.game == "cartpole-basic":        
+        logger.warn("CartPoleBasic does not provide any images!")
+        screen = CartPoleBasic()
     else:
         logger.error("Screen value not supported!")
         exit(-1)
@@ -72,7 +75,7 @@ def main(args):
         # Replay Buffer
         replay_mem = None
         if args.agent_simple:
-            if args.argent_hist > 1:
+            if args.agent_hist > 1:
                 logger.error("Simple Replay Buffer can only be used with single frame observations")
                 exit(-3)
                 
@@ -87,7 +90,7 @@ def main(args):
         elif args.agent_model == "caps":
             raise NotImplemented()
         elif args.agent_model == "linear":
-            raise NotImplemented()
+            model = DQNLinear(screen.get_dim(), screen.get_actions())
         else:
             logger.error("Agent model type not supported!")
             exit(-3)
@@ -153,7 +156,7 @@ def main(args):
 if __name__ == "__main__":    
     parser = argparse.ArgumentParser()
     # Game
-    parser.add_argument("-g", "--game", type=str, choices=["spaceinvaders", "cartpole"],
+    parser.add_argument("-g", "--game", type=str, choices=["spaceinvaders", "cartpole", "cartpole-basic"],
                         default="spaceinvaders", help="The game to train on")
 
     # Dataset 
