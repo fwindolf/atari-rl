@@ -242,6 +242,8 @@ class CartPoleScreen(ScreenBase):
         
         self.env = Uint8Wrapper(self.env)
         
-        
+class CartPoleBasic(ScreenBase):
+    def __init__(self):
+        super().__init__('CartPole-v0')
             
         
