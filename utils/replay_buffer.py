@@ -34,36 +34,6 @@ class ReplayBuffer():
         Return the numer of frames for each observation
         """
         return self.history_len
-        
-    def initialize_random(self, num_replays):
-        """
-        Initilize the replay memory with <num_replays> experiences
-        
-        num_replays (int): How many experiences should be generated
-        return           : The latest observation
-        """
-        
-        initialized = False
-        while(not initialized):
-            # run sequences
-            self.screen.reset()
-            for t in range(self.history_len):                
-                action = self.screen.sample_action() # random action
-                obs, reward, done = self.screen.input(action)
-                
-                assert(obs.dtype.name == 'uint8') # uses less memory
-                
-                idx = self.store_frame(obs)
-                self.store_effect(idx, action, reward, done)
-                
-                if done:
-                    break # start new sequence
-                    
-                if self.num_transitions >= num_replays:        
-                    initialized = True
-                    break
-                
-        return obs          
     
     def initialize_dataset(self, num_replays, dataset):
         """
