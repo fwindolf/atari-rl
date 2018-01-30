@@ -32,12 +32,15 @@ def main(args):
     logger.info("Creating game environment in a screen")
     if args.game == "spaceinvaders":
         screen = SpaceInvaderScreen()
+        logger.info("SpaceInvaderScreen created")
     elif args.game == "cartpole":
         logger.warn("CartPoleScreen needs an active/configured Display to work")
         screen = CartPoleScreen()
+        logger.info("CartPoleScreen created")
     elif args.game == "cartpole-basic":        
         logger.warn("CartPoleBasic does not provide any images!")
         screen = CartPoleBasic()
+        logger.info("CartPoleBasic created")
     else:
         logger.error("Screen value not supported!")
         exit(-1)
@@ -49,8 +52,10 @@ def main(args):
         logger.info("Opening dataset")
         dataset = AGCDataSet(args.dataset_dir, args.game, history_len=args.agent_hist,
                              screen=screen) 
+        logger.info("Dataset created")
         logger.info("Creating dataloader")
         dataloader = DataLoader(dataset, batch_size=args.train_batch, num_workers=4)
+        logger.info("Dataloader created")
         
     # Create Loss    
     loss = None
@@ -63,7 +68,6 @@ def main(args):
     else:
         logger.error("Loss not supported!")
         exit(-2)
-        
     
     # Create Agent
     agent = None
@@ -80,23 +84,29 @@ def main(args):
                 exit(-3)
                 
             replay_mem = SimpleReplayBuffer(args.agent_mem)
+            logger.info("SimpleReplayBuffer created")
         else:
             replay_mem = ReplayBuffer(args.agent_mem, args.agent_hist, screen)
+            logger.info("ReplayBuffer created")
         
         # Model
         model = None
         if args.agent_model == "cnn":
             model = DQN(args.agent_hist, screen.get_actions())
+            logger.info("DQN CNN model created")
         elif args.agent_model == "caps":
             raise NotImplemented()
+            logger.info("DQN CapsNet model created")
         elif args.agent_model == "linear":
             model = DQNLinear(screen.get_dim(), screen.get_actions())
+            logger.info("DQN Linear model created")
         else:
             logger.error("Agent model type not supported!")
             exit(-3)
             
-        agent = DQNAgent(screen, history_len=args.agent_hist, gamma=0.99, loss=loss,
+        agent = DQNAgent(screen, history_len=args.agent_hist, loss=loss,
                          memory=replay_mem, model=model)      
+        logger.info("Agent created")        
         
     elif args.agnet == "reinforce":
         raise NotImplemented()
@@ -122,12 +132,11 @@ def main(args):
     
     # Create Solver
     logger.info("Creating solver")
-    solver = Solver(optimizer, loss, batchsize=args.train_batch, playtime=args.train_playtime,
-                    log_level=args.log_level)
+    solver = Solver(optimizer, batchsize=args.train_batch, log_level=args.log_level)
         
     ### Benchmarking 
-    logger.info("Creating Baseline scores")
-    intial_best, initial_mean, intial_dur = solver.play(agent, screen, args.train_playtime)
+    logger.info("Benchmarking for baseline scores")
+    intial_best, initial_mean, intial_dur = solver.play(agent, screen)
     logger.info("Baseline with best score %d (Mean %d in %d frames)" % (intial_best, initial_mean, intial_dur))
     
     ### Training
@@ -139,7 +148,7 @@ def main(args):
         
     else:
         logger.info("Initializing Memory")
-        agent.initialize(args.agent_init)
+        agent.initialize(screen, args.agent_init)
         logger.info("Training online")        
         solver.train_online(agent, screen, num_epochs=args.train_epochs, learning_rate=args.train_lr)
         logger.info("Training finished")
@@ -178,7 +187,7 @@ if __name__ == "__main__":
     parser.add_argument("-ah", "--agent-hist", type=int,
                         default=4, help="The number of frames in an observation")
     parser.add_argument("-al", "--agent-loss", type=str, choices=["huber", "l2", "crossentropy"],
-                        default="crossentropy", help="The loss used for optimizing the agents model")
+                        default="huber", help="The loss used for optimizing the agents model")
     parser.add_argument("-as", "--agent-simple", 
                         action="store_true", help="Use a simple replay memory")
 

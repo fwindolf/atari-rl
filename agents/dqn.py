@@ -8,14 +8,14 @@ import torch
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 from torch.nn import CrossEntropyLoss
-
+import torch.nn.functional as F
 from utils.replay_buffer import ReplayBuffer
 
 
 class DQNAgent(AgentBase):
     """A DQN agent implementation according to the DeepMind paper."""
 
-    def __init__(self, screen, history_len=10, gamma=0.999, loss=CrossEntropyLoss(), memory=None, model=None):
+    def __init__(self, screen, history_len=10, gamma=0.8, loss=CrossEntropyLoss(), memory=None, model=None):
         """Initialize agent."""
         super().__init__(screen)
         self.history_len = history_len
@@ -36,72 +36,25 @@ class DQNAgent(AgentBase):
         self.loss = loss
         
         # for stepping
+        self.steps = 0
         self.obs = None
         self.state_buffer = None
         self.dur = 0 
-
-
-    def initialize(self, num_replays=10000):
-        """Randomly initialize the replay buffer.
-
-        Args:
-            num_replays (int) : the number of replays.
-        """
-        initialized = False
-        while(not initialized):
-            # run sequences
-            self.screen.reset()
-            done = False
-            while(not done):                
-                action = self.screen.sample_action() # random action
-                obs, reward, done = self.screen.input(action)                
-                idx = self.memory.store_frame(obs)
-                self.memory.store_effect(idx, action, reward, done)
-                    
-                if self.memory.num_transitions >= num_replays:        
-                    initialized = True
-                    break  
-
-    def __encode_model_input(self, observation):
-        """Encode the observation in a way that the model can use it.
-
-        Args :
-            observation : Any number of frames in screen output format
-            (greyscale)
-        """
-        num_channels = 1      
-        if len(observation.shape) == 4:
-            num_channels = observation.shape[1]  # Batchsize, Channels, H, W
-        elif len(observation.shape) == 3:
-            num_channels = observation.shape[0]  # Channels, H, W
-        
-        assert (num_channels <= self.history_len)
-
-        if observation.dtype.name == 'uint8':
-            observation = observation.astype('float') / 255.
-
-        if num_channels < self.history_len:
-            num_missing = self.history_len - num_channels
-            observation = np.concatenate((
-                np.zeros((*observation.shape[0:2], num_missing)),
-                np.expand_dims(observation, 2)), axis=2)
-        
-        observation = torch.FloatTensor(observation)
-        
-        if len(observation.shape) == 3:
-            observation = observation.unsqueeze(0)
-            
-        return observation
     
-    
-    def __epsilon(self, epsilon, epsilon_end=0.05, epoch=1, max_epochs=1):
+    def __epsilon_linear(self, epsilon, epsilon_end=0.05, decay=2000):
         """
         Linearily decay epsilon from epsilon to epsilon_end
         """
-        eps_step = (epsilon - epsilon_end) / max_epochs
-        return epsilon - epoch * eps_step
+        eps_step = (epsilon - epsilon_end) / decay
+        return epsilon - self.step * eps_step
+    
+    def __epsilon(self, epsilon, epsilon_end=0.05, decay=200):
+        """
+        Exponentially decay epsilon from epsilon to epsilon_end
+        """
+        return epsilon_end + (epsilon - epsilon_end) * np.exp(-1. * self.steps / decay)
 
-    def next_action(self, observation, epoch, max_epochs, epsilon=0.9):
+    def next_action(self, observation, epsilon=0.9, random=False):
         """
         Choose the next action to take based on an observation
         
@@ -110,16 +63,13 @@ class DQNAgent(AgentBase):
         
         observation : sequence of frames in screen output format        
         """        
-        # decay epsilon
-        cur_eps = self.__epsilon(epsilon, epoch=epoch, max_epochs=max_epochs)  
+        eps_threshold = self.__epsilon(epsilon)
         
-        if np.random.rand() < cur_eps:            
-            action = self.screen.sample_action() # random action from action space
-        else:            
-            observation = Variable(self.__encode_model_input(observation), volatile=True)
-            action = self.model.predict(observation).data.cpu().numpy().squeeze()
-            
-        return action
+        if random or np.random.rand() <= eps_threshold:
+            return torch.LongTensor([[self.screen.sample_action()]])
+        else:
+            observation = Variable(observation, volatile=True).type(torch.FloatTensor)
+            return self.model(observation).data.max(1)[1].view(1, 1)
   
     def optimize(self, optimizer, screen, batchsize, data=None):
         """Train the model.
@@ -141,61 +91,61 @@ class DQNAgent(AgentBase):
             screen : wrapper for the environment
             batchsize (int) : the size of a batch
             data : use this data instead of sampling from memory
-        """
-
+        """        
         if data is None:
-            data = self.memory.sample(batchsize)
+            if not self.memory.can_sample(batchsize):
+                return np.array([0])
             
-        obs, action, reward, done, next_obs = data
-        
-        # convert to variables (not from dataloader, so manually wrap in torch tensor)
-        obs = Variable(obs.float())
-        action = Variable(action.long()) 
-        reward = Variable(reward.float())
-        
-        # mask of non final next_obs 
-        non_final_mask = done.int().eq(0).nonzero().squeeze(1) # nonzero() adds dimension
+            batch_state, batch_action, batch_reward, batch_next_state = self.memory.sample(batchsize)
+            batch_state = Variable(torch.cat(batch_state))
+            batch_action = Variable(torch.cat(batch_action))
+            batch_reward = Variable(torch.cat(batch_reward))
+            batch_next_state = Variable(torch.cat(batch_next_state))            
+        else:
+            batch_state, batch_action, batch_reward, batch_next_state = data
+            batch_obs = Variable(obs.float())
+            batch_action = Variable(action.long()) 
+            batch_reward = Variable(reward.float())
+            batch_next_obs = Variable(next_obs.float())
 
-        # Observations that dont end the sequence
-        non_final_obs = Variable(next_obs[non_final_mask, :])
-        
-        # future predicted rewards
-        next_obs_values = Variable(torch.zeros(reward.data.shape))
-        
         if self.model.is_cuda:
-            obs = obs.cuda()
-            action = action.cuda()
-            reward = reward.cuda()
-            non_final_mask = non_final_mask.cuda()
-            non_final_obs = non_final_obs.cuda()
-            next_obs_values = next_obs_values.cuda()
-        
-        # q values predicted by model for observation and select the columns of actions taken
-        obs_action_values = self.model(obs).gather(1, action.unsqueeze(1))
+            batch_state, batch_next_state = batch_state.cuda(), batch_next_state.cuda()
+            batch_action, batch_reward = batch_action.cuda(), batch_reward.cuda()
 
-        # future rewards predicted by model (when sequences dont end)
-        next_obs_values[non_final_mask] = self.model(non_final_obs).max(1)[0]
-        next_obs_values = Variable(next_obs_values.data, volatile=False)
-        
-        # To not mess up the loss
-        next_obs_values.volatile = False
-        
-        # Expected q values from observation
-        expected_obs_action_values = (next_obs_values * self.gamma) + reward
+        # current Q values are estimated by NN for all actions
+        current_q_values = self.model(batch_state).gather(1, batch_action)
 
-        # Loss is the difference between the calculated and the predicted q values
-        loss = self.loss(obs_action_values, expected_obs_action_values)
-        
-        # Apply to model
+        # expected Q values are estimated from actions which gives maximum Q value
+        max_next_q_values = self.model(batch_next_state).detach().max(1)[0]
+        expected_q_values = batch_reward + (self.gamma * max_next_q_values)    
+
+        # loss is measured from error between current and newly expected Q values
+        loss = F.smooth_l1_loss(current_q_values, expected_q_values)
+
+        # backpropagation of loss to NN
         optimizer.zero_grad()
         loss.backward()
-        for param in self.model.parameters():
-            param.grad.data.clamp_(-1, 1)  # clamp gradient to stay stable
         optimizer.step()
 
         return loss.data.cpu().numpy()
     
-    def step(self, screen, epoch, max_epochs, save=False):
+    def __encode_frame(self, frame):
+        # if this is an image, make sure it is float 
+        if np.issubdtype(self.obs.dtype, np.integer):
+            self.obs = self.obs.astype(np.float32) / 255.
+        
+        # create FloatTensor
+        if len(self.obs.shape) == 1:
+            state = torch.FloatTensor(self.obs)
+        elif len(self.obs.shape) == 2:
+            state = torch.FloatTensor(self.obs).unsqueeze(0)
+        else:
+            state = torch.FloatTensor(self.obs)       
+            
+        # return with batchsize 0
+        return state.unsqueeze(0)
+    
+    def step(self, screen, save=False, random=False, render=False):
         """
         Stepwise playing (with state)
         
@@ -206,38 +156,70 @@ class DQNAgent(AgentBase):
             save (bool) : Write to replay memory
         """
         # Initialize
-        if self.obs is None:
-            self.obs = screen.reset()
-            self.last_obs = self.obs
-            self.rew = 0
-            self.dur = 0
+        if self.obs is None:            
+            self.obs = screen.reset() # new sequence
+            self.rew = 0 # accumulated
+            self.dur = 0 # accumulated
         
-        # Buffer for last history_len frames
-        if self.state_buffer is None:
-            self.state_buffer = np.zeros([self.memory.get_history_len(), *self.obs.shape])
+        
+        # if this is an image, make sure it is float 
+        if np.issubdtype(self.obs.dtype, np.integer):
+            self.obs = self.obs.astype(np.float32) / 255.
+        
+        if len(self.obs.shape) == 1:
+            state = torch.FloatTensor(self.obs)
+        elif len(self.obs.shape) == 2:
+            state = torch.FloatTensor(self.obs).unsqueeze(0)
+        else:
+            state = torch.FloatTensor(self.obs)           
             
-        action = self.next_action(self.state_buffer, epoch, max_epochs)
-        self.obs, reward, done = screen.input(action)
+        # next step in environment - model takes history into account
+        action = self.next_action(self.__encode_frame(self.obs), random=random)
         
+        # display screen if render is active
+        if render:
+            screen.render()
+        
+        # get new screen from environment
+        self.next_obs, reward, done = screen.input(action[0,0])
+        
+        # increase steps in case we really played
+        if save and not random:
+            self.steps += 1
+                
+        # accumulated reward
         self.rew += reward
         self.dur += 1
         
-        # accumulate states in state_buffer
-        state = self.obs - self.last_obs
-        self.state_buffer = np.roll(self.state_buffer, -1, axis=0) # shift to make room for new
-        self.state_buffer[-1] = state
-        self.last_obs = self.obs
+        # store negative reward when sequence ends
+        if done:
+            reward = -1
+            
+        if save:          
+            idx = self.memory.store_frame(self.__encode_frame(self.obs))
+            self.memory.store_effect(idx, action, torch.FloatTensor([reward]), 
+                                     self.__encode_frame(self.next_obs))
         
-        if save:
-            idx = self.memory.store_frame(self.obs)
-            self.memory.store_effect(idx, action, reward, done)
+        self.obs = self.next_obs
         
+        # reset observation when done
         if done:
             self.obs = None
         
-        return state, reward, action, done
+        return self.obs, reward, action, done
+    
+    def initialize(self, screen, num_frames=10000):
+        """Randomly initialize the replay buffer.
 
-    def play(self, screen, epoch, max_epoch, max_duration=10000, save=False):
+        Args:
+            num_replays (int) : the number of replays.
+        """
+        initialized = False
+        for e in range(num_frames):
+            # run sequences (dont need epoch and max_epoch as random is True)
+            self.step(screen, save=True, random=True)               
+
+    def play(self, screen, max_duration=10000, save=False):
         """
         Play a sequence
         
@@ -252,46 +234,6 @@ class DQNAgent(AgentBase):
         # while game not lost/terminated
         done = False        
         while not done and self.dur < max_duration:            
-            _, _, _, done = self.step(screen, epoch, max_epoch, save)
+            _, _, _, done = self.step(screen, save)
             
         return self.rew, self.dur
-    
-class HumanMemoryDQNAgent(DQNAgent):
-    """
-    The DQN Agent that does not sample the initial replay memories from
-    random actions in the environment but from the AtariGC dataset
-    """
-    def __init__(self, screen, mem_size=100000, history_len=10):
-        super().__init__(screen, mem_size, history_len)
-        
-    def initialize(self, dataset, num_replays=100000):
-        """
-        Initialize the replay buffer from a dataset
-        """
-        self.memory.initialize_dataset(num_replays, dataset)
-        
-
-class HumanTrainedDQNAgent(DQNAgent):
-    """
-    The DQN Agent that first trains the model from the dataset and then
-    initializes the replay buffer by playing
-    """
-    def __init__(self, screen, mem_size=100000, history_len=10):
-        super().__init__(screen, mem_size, history_len)
-    
-    def initialize(self, solver, dataset, num_epochs=100, num_replays=10000):
-        """
-        Initialize by training the model, then initialize the replay memory 
-        by playing
-        """
-        # Train the model from some dataset
-        data_train, data_valid, data_test = dataset.split(0.7, 0.2)
-        train_loader = DataLoader(data_train, batchsize=10, num_workers=4)
-        val_loader = DataLoader(data_val, batchsize=10, num_workers=4)
-        test_loader = DataLoader(data_test, batchsize=10, num_workers=4)
-        
-        solver.train_offline(self, train_loader, val_loader, num_epochs)
-        
-        solver.eval(self, test_loader)
-                
-        self.memory.initialize_playing(num_replays, agent)

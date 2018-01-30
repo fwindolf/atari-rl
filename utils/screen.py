@@ -147,6 +147,9 @@ class ScreenBase:
         
     def reset(self):
         return self.env.reset()
+    
+    def render(self):
+        return self.env.render()
             
     def get_dim(self):
         """

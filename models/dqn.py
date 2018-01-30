@@ -42,13 +42,15 @@ class DQN(ModelBase):
 
     
 class DQNLinear(ModelBase):
-    def __init__(self, num_inputs, num_actions):
+    def __init__(self, num_inputs, num_actions):        
         num_inputs, num_actions = int(num_inputs), int(num_actions)        
         super().__init__(num_inputs, num_actions)
         self.l1 = nn.Linear(num_inputs, 256)
         self.l2 = nn.Linear(256, num_actions)
 
     def forward(self, x):
+        if self.is_cuda:
+            x = x.cuda()
         x = F.relu(self.l1(x))
         x = self.l2(x)
         return x
