@@ -103,15 +103,15 @@ class DQNAgent(AgentBase):
             batch_next_state = Variable(torch.cat(batch_next_state))            
         else:
             batch_state, batch_action, batch_reward, batch_next_state = data
-            batch_obs = Variable(obs.float())
-            batch_action = Variable(action.long()) 
-            batch_reward = Variable(reward.float())
-            batch_next_obs = Variable(next_obs.float())
+            batch_state = Variable(batch_state.float())
+            batch_action = Variable(batch_action.long().unsqueeze(1))
+            batch_reward = Variable(batch_reward.float())
+            batch_next_state = Variable(batch_next_state.float())
 
         if self.model.is_cuda:
             batch_state, batch_next_state = batch_state.cuda(), batch_next_state.cuda()
             batch_action, batch_reward = batch_action.cuda(), batch_reward.cuda()
-
+        
         # current Q values are estimated by NN for all actions
         current_q_values = self.model(batch_state).gather(1, batch_action)
 
