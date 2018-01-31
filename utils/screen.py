@@ -18,7 +18,8 @@ class GreyscaleWrapper(gym.ObservationWrapper):
     def __init__(self, env):
         super().__init__(env)
         shape = env.observation_space.shape
-        self.observation_space = Box(0, 255, [shape[0], shape[1], 1])
+        if len(shape) > 1:
+            self.observation_space = Box(0, 255, [shape[0], shape[1], 1])
         
     def _observation(self, frame):
         return rgb2gray(frame)
@@ -29,7 +30,7 @@ class GreyscaleWrapper(gym.ObservationWrapper):
             
 
 class RescaleWrapper(gym.ObservationWrapper):
-    def __init__(self, env=None, dim=(80, 80)):
+    def __init__(self, env=None, dim=(80, 80), mode='constant'):
         """
         Create a new Wrapper that rescales the observations
         env (gym) : The environment to be wrapped
@@ -41,11 +42,13 @@ class RescaleWrapper(gym.ObservationWrapper):
             self.c = self.env.observation_space.shape[2]
         else:
             self.c = 1
+            
+        self.mode = mode
         
         self.observation_space = Box(0.0, 1.0, [self.c, self.w, self.h]) # C, W, H
         
     def _observation(self, frame):
-        frame = resize(frame, (self.w, self.h), mode='constant')
+        frame = resize(frame, (self.w, self.h), mode=self.mode)
         return frame
     
     def output(self, frame):
@@ -95,8 +98,12 @@ class Uint8Wrapper(gym.ObservationWrapper):
     
 class CartPoleScreenWrapper(gym.ObservationWrapper):
     def __init__(self, env=None):
-        super().__init__(env)
-        self.screen_width=600
+        super().__init__(env)                
+        self.view_width = 400
+        self.view_height = 400
+        self.screen_width = 600
+        # observation space already cropped
+        self.observation_space = Box(0, 255, [self.view_height, self.view_width, 3])
         
     def __get_cart_location(self):
         env = self.env.unwrapped
@@ -107,18 +114,19 @@ class CartPoleScreenWrapper(gym.ObservationWrapper):
     def __get_screen(self):
         # needs a display!
         screen = self.env.render(mode='rgb_array')
-        screen = screen[:, 160:320]
-
-        view_width = 320
-        cart_location = self.__get_cart_location()
-        if cart_location < view_width // 2:
-            slice_range = slice(view_width)
-        elif cart_location > (self.screen_width - view_width // 2):
-            slice_range = slice(-view_width, None)
+        
+        # center on cart
+        cart_location = self.__get_cart_location()        
+        
+        if cart_location < self.view_width // 2:
+            slice_range = slice(self.view_width)
+        elif cart_location > (self.screen_width - self.view_width // 2):
+            slice_range = slice(-self.view_width, None)
         else:
-            slice_range = slice(cart_location - view_width // 2,
-                                cart_location + view_width // 2)
-
+            slice_range = slice(cart_location - self.view_width // 2,
+                                cart_location + self.view_width // 2)
+        
+        screen = screen[:, slice_range]
         return screen
     
     def _observation(self, frame):
@@ -233,15 +241,18 @@ class SpaceInvaderScreen(ScreenBase):
         
         
 class CartPoleScreen(ScreenBase):
-    def __init__(self, dim=(80,80), crop=None, greyscale=True):
+    def __init__(self, dim=(80,80), crop=(85, 35, 60, 60), greyscale=True):
         super().__init__('CartPole-v0')
         
         self.env = CartPoleScreenWrapper(self.env)
         
+        if greyscale:
+            self.env = GreyscaleWrapper(self.env)                 
+        if crop:
+            self.env = CropWrapper(self.env, crop)
         if dim:
             self.env = RescaleWrapper(self.env, dim)
-        if greyscale:
-            self.env = GreyscaleWrapper(self.env)
+        
         
         self.env = Uint8Wrapper(self.env)
         
