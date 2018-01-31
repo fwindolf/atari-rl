@@ -19,8 +19,7 @@ from models.dqn import DQN, DQNLinear, DQNCapsNet
 from train.solver import Solver
 
 
-def main(args):
-    
+def train(args):    
     time = datetime.now()
     
     # Create Logging
@@ -105,8 +104,8 @@ def main(args):
             exit(-3)
             
         agent = DQNAgent(screen, history_len=args.agent_hist, loss=loss,
-                         memory=replay_mem, model=model)      
-        logger.info("Agent created")        
+                         memory=replay_mem, model=model, gamma=args.agent_gamma)      
+        logger.info("Agent created (Gamma=%f, HistoryLen=%d)" % (args.agent_gamma, args.agent_hist))
         
     elif args.agnet == "reinforce":
         raise NotImplemented()
@@ -159,8 +158,9 @@ def main(args):
     logger.info("Benchmark with best score %d (Mean %d in %d frames)" % (final_best, final_mean, final_dur))
     
     # Save model
-    agent.model.save("output/%s-%s-%s-%s" % (str(time), args.agent, args.agent_model, str(args.train_lr)))
-    
+    agent.model.save("output/%s-%s-%s-%s-%s" % (str(time), args.agent, args.agent_model, 
+                                                str(args.train_lr), str(args.agent_gamma)))
+
     
 if __name__ == "__main__":    
     parser = argparse.ArgumentParser()
@@ -190,6 +190,10 @@ if __name__ == "__main__":
                         default="huber", help="The loss used for optimizing the agents model")
     parser.add_argument("-as", "--agent-simple", 
                         action="store_true", help="Use a simple replay memory")
+    
+    # Optional
+    parser.add_argument("-ag", "--agent-gamma", type=float, 
+                        default=0.99, help="The gamma parameter for DQN")
 
 
     # Training
@@ -208,9 +212,28 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--log-level", type=str, choices=["DEBUG", "INFO", "WARN", "ERROR"],
                         default="INFO", help="The level used for logging")
     
+    # Hyperparameter Search
+    parser.add_argument("-hs", "--hyperparameter-search",
+                        action="store_true", help="Search among different hyper parameters")
+    parser.add_argument("-hlr", "--hyperparameter-lr", type=float, nargs='+',  
+                        required="-hs" in sys.argv or "--hyperparameter-search" in sys.argv,
+                        help="Search different parameters for learning rate")
+    parser.add_argument("-hg", "--hyperparameter-gamma", type=float, nargs='+',  
+                        required="-hs" in sys.argv or "--hyperparameter-search" in sys.argv,
+                        help="Search different parameters for gamma")
+    
+    
     # Parse the arguments and provide for main
     args = parser.parse_args()    
-    main(args)
+    
+    if args.hyperparameter_search:
+        for lr in args.hyperparameter_lr:
+            for gamma in args.hyperparameter_gamma:
+                args.train_lr = lr
+                args.agent_gamma = gamma
+                train(args)                
+    else:         
+        train(args)
 
 
 
