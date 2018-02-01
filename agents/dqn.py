@@ -7,18 +7,18 @@ import torch
 
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
-from torch.nn import CrossEntropyLoss
+from torch.nn import SmoothL1Loss
 import torch.nn.functional as F
 from utils.replay_buffer import ReplayBuffer
 
 
 class DQNAgent(AgentBase):
     """A DQN agent implementation according to the DeepMind paper."""
-
-    def __init__(self, screen, history_len=10, gamma=0.8, loss=CrossEntropyLoss(), memory=None, model=None):
+    def __init__(self, screen, history_len=10, gamma=0.8, loss=SmoothL1Loss(), memory=None, model=None):
         """Initialize agent."""
         super().__init__(screen)
         self.history_len = history_len
+        
         if memory is None:
             self.memory = ReplayBuffer(100000, history_len, screen)
         else:
@@ -28,17 +28,16 @@ class DQNAgent(AgentBase):
             self.model = DQN(history_len, screen.get_actions())
         else:
             self.model = model            
-        
+
         if torch.cuda.is_available():
             self.model.cuda()
 
         self.gamma = gamma
         self.loss = loss
-        
+
         # for stepping
         self.steps = 0
         self.obs = None
-        self.state_buffer = None
         self.dur = 0 
     
     def __epsilon_linear(self, epsilon, epsilon_end=0.05, decay=2000):
@@ -68,7 +67,7 @@ class DQNAgent(AgentBase):
         if random or np.random.rand() <= eps_threshold:
             return torch.LongTensor([[self.screen.sample_action()]])
         else:
-            observation = Variable(observation, volatile=True).type(torch.FloatTensor)
+            observation = Variable(observation, volatile=True).type(torch.FloatTensor)   
             return self.model(observation).data.max(1)[1].view(1, 1)
   
     def optimize(self, optimizer, screen, batchsize, data=None):
@@ -113,14 +112,14 @@ class DQNAgent(AgentBase):
             batch_action, batch_reward = batch_action.cuda(), batch_reward.cuda()
         
         # current Q values are estimated by NN for all actions
-        current_q_values = self.model(batch_state).gather(1, batch_action)
+        current_q_values = self.model(batch_state).squeeze().gather(1, batch_action)
 
         # expected Q values are estimated from actions which gives maximum Q value
-        max_next_q_values = self.model(batch_next_state).detach().max(1)[0]
+        max_next_q_values = self.model(batch_next_state).squeeze().detach().max(1)[0]
         expected_q_values = batch_reward + (self.gamma * max_next_q_values)    
 
         # loss is measured from error between current and newly expected Q values
-        loss = F.smooth_l1_loss(current_q_values, expected_q_values)
+        loss = self.loss(current_q_values, expected_q_values)
 
         # backpropagation of loss to NN
         optimizer.zero_grad()
@@ -160,19 +159,7 @@ class DQNAgent(AgentBase):
             self.obs = screen.reset() # new sequence
             self.rew = 0 # accumulated
             self.dur = 0 # accumulated
-        
-        
-        # if this is an image, make sure it is float 
-        if np.issubdtype(self.obs.dtype, np.integer):
-            self.obs = self.obs.astype(np.float32) / 255.
-        
-        if len(self.obs.shape) == 1:
-            state = torch.FloatTensor(self.obs)
-        elif len(self.obs.shape) == 2:
-            state = torch.FloatTensor(self.obs).unsqueeze(0)
-        else:
-            state = torch.FloatTensor(self.obs)           
-            
+
         # next step in environment - model takes history into account
         action = self.next_action(self.__encode_frame(self.obs), random=random)
         
