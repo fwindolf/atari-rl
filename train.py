@@ -2,6 +2,7 @@ import argparse
 import logging
 import torch
 import sys
+import gym
 
 from torch import optim
 from torch.nn import CrossEntropyLoss, SmoothL1Loss, MSELoss
@@ -11,20 +12,38 @@ from torchvision import transforms, utils
 
 from datetime import datetime
 
-from agents.dqn import DQNAgent
+
 from utils.screen import SpaceInvaderScreen, CartPoleScreen, CartPoleBasic
 from utils.agc_data_loader import AGCDataSet
 from utils.replay_buffer import SimpleReplayBuffer, ReplayBuffer
+
+from agents.dqn import DQNAgent
+from agents.reinforce import REINFORCE
+
 from models.dqn import DQN, DQNLinear, DQNCapsNet
+
 from train.solver import Solver
 
 
-def train(args):    
-    time = datetime.now()
-    
+# Choices
+games = ["spaceinvaders", "cartpole", "cartpole-basic"]
+agents = ["dqn", "reinforce", "a3c", "pg"]
+models = ["cnn", "caps", "linear", "continuous", "discrete", "dueling", "a2c"]
+optimizers = ["rmsprop", "sgd", "adam"]
+losses = ["huber", "l2", "crossentropy"]
+log_levels = ["DEBUG", "INFO", "WARN", "ERROR"]
+
+def train(args):  
+        
     # Create Logging
     logger = logging.getLogger("Main")
     logger.setLevel(args.log_level.upper())
+    
+    time = datetime.now()
+    
+    logger.info("Time  : %s" % str(time))
+    logger.info("Params: %s" % str(args))
+
     
     # Create Game Environment
     screen = None
@@ -73,8 +92,6 @@ def train(args):
     logger.info("Create agent")
     
     if args.agent == "dqn":
-        # TODO different models for dqn
-        
         # Replay Buffer
         replay_mem = None
         if args.agent_simple:
@@ -91,13 +108,13 @@ def train(args):
         # Model
         model = None
         if args.agent_model == "cnn":
-            model = DQN(args.agent_hist, screen.get_actions())
+            model = DQN(args.agent_hist * screen.get_shape()[0], screen.get_actions())
             logger.info("DQN CNN model created")
         elif args.agent_model == "caps":
-            raise NotImplemented()
+            model = DQNCapsNet(args.agent_hist * screen.get_shape()[0], screen.get_actions())
             logger.info("DQN CapsNet model created")
         elif args.agent_model == "linear":
-            model = DQNLinear(screen.get_dim(), screen.get_actions())
+            model = DQNLinear(screen.get_dim(), screen.get_actions(), args.agent_network_hidden)
             logger.info("DQN Linear model created")
         else:
             logger.error("Agent model type not supported!")
@@ -107,8 +124,27 @@ def train(args):
                          memory=replay_mem, model=model, gamma=args.agent_gamma)      
         logger.info("Agent created (Gamma=%f, HistoryLen=%d)" % (args.agent_gamma, args.agent_hist))
         
-    elif args.agnet == "reinforce":
-        raise NotImplemented()
+    elif args.agent == "reinforce":
+        if args.agent_model == "discrete":
+            if type(screen.env.unwrapped.action_space) != gym.spaces.discrete.Discrete:
+                logger.warn("Agent model type is discrete but environment seems to be not")
+            
+            agent = REINFORCE(screen, args.agent_hist, args.agent_network_hidden, args.agent_gamma, False)            
+            logger.info("Reinforce Discrete agent created")
+            
+        elif args.agent_model == "continuous":
+            if type(screen.env.unwrapped.action_space) == gym.spaces.discrete.Discrete:
+                logger.warn("Agent model type is continuous but environment seems to be discrete")
+            
+            agent = REINFORCE(screen, args.agent_hist, args.agent_network_hidden, args.agent_gamma, True)            
+            logger.info("Reinforce Continuous agent created")
+            
+        else:
+            logger.error("Agent model type not supported!")
+            exit(-3)
+        
+        logger.info("Agent created (Gamma=%f, HistoryLen=%d)" % (args.agent_gamma, args.agent_hist))
+        
     elif args.agent == "a3c":
         raise NotImplemented()
     elif args.agent == "pg":
@@ -134,7 +170,7 @@ def train(args):
     solver = Solver(optimizer, batchsize=args.train_batch, log_level=args.log_level)
         
     ### Benchmarking 
-    logger.info("Benchmarking for baseline scores")
+    logger.info("Creating Baseline scores")
     intial_best, initial_mean, intial_dur = solver.play(agent, screen, args.train_playtime)
     logger.info("Baseline with best score %d (Mean %d in %d frames)" % (intial_best, initial_mean, intial_dur))
     
@@ -165,7 +201,7 @@ def train(args):
 if __name__ == "__main__":    
     parser = argparse.ArgumentParser()
     # Game
-    parser.add_argument("-g", "--game", type=str, choices=["spaceinvaders", "cartpole", "cartpole-basic"],
+    parser.add_argument("-g", "--game", type=str, choices = games,
                         default="spaceinvaders", help="The game to train on")
 
     # Dataset 
@@ -176,9 +212,9 @@ if __name__ == "__main__":
                         help="The base directory of the dataset ")
 
     # Agent
-    parser.add_argument("-a", "--agent", type=str, choices=["dqn", "reinforce", "a3c", "pg"],
+    parser.add_argument("-a", "--agent", type=str, choices = agents,
                         default="dqn", help="The type used of the agent")
-    parser.add_argument("-am", "--agent-model", type=str, choices=["cnn", "caps", "linear"],
+    parser.add_argument("-am", "--agent-model", type=str, choices = models,
                         default="cnn", help="The model type used for the agent's model")
     parser.add_argument("-ar", "--agent-mem", type=int, 
                         default=0, help="The agent's replay buffer size")
@@ -186,7 +222,7 @@ if __name__ == "__main__":
                         default=0, help="How many frames the replay buffer is initialized with")
     parser.add_argument("-ah", "--agent-hist", type=int,
                         default=4, help="The number of frames in an observation")
-    parser.add_argument("-al", "--agent-loss", type=str, choices=["huber", "l2", "crossentropy"],
+    parser.add_argument("-al", "--agent-loss", type=str, choices = losses,
                         default="huber", help="The loss used for optimizing the agents model")
     parser.add_argument("-as", "--agent-simple", 
                         action="store_true", help="Use a simple replay memory")
@@ -194,6 +230,8 @@ if __name__ == "__main__":
     # Optional
     parser.add_argument("-ag", "--agent-gamma", type=float, 
                         default=0.99, help="The gamma parameter for DQN")
+    parser.add_argument("-an", "--agent-network-hidden", type=int, 
+                        default=256, help="The number of hidden units for a model")
 
 
     # Training
@@ -203,13 +241,13 @@ if __name__ == "__main__":
                         default=1000, help="Numbers of epochs used for training")
     parser.add_argument("-tp", "--train-playtime", type=int,
                         default=10, help="Number of sequences to play to benchmark, ..")
-    parser.add_argument("-to", "--train-optim", type=str, choices=["rmsprop", "sgd", "adam"],
+    parser.add_argument("-to", "--train-optim", type=str, choices = optimizers,
                         default="adam", help="The optimizer used during training")
     parser.add_argument("-tl", "--train-lr", type=float,
                         default=0.00025, help="The learning rate for training")
 
     # Misc
-    parser.add_argument("-l", "--log-level", type=str, choices=["DEBUG", "INFO", "WARN", "ERROR"],
+    parser.add_argument("-l", "--log-level", type=str, choices = log_levels,
                         default="INFO", help="The level used for logging")
     
     # Hyperparameter Search
