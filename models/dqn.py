@@ -1,9 +1,12 @@
 from models.base import ModelBase
 
+import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
+
+from models.caps.capsule import Capsule
 
 class DQN(ModelBase):
     """
@@ -56,12 +59,41 @@ class DQNLinear(ModelBase):
         return x
 
 class DQNCapsNet(ModelBase):
-    def __init__(self, num_inputs, num_actions):
-        super().__init__(num_inputs, num_actions)
-        # TODO
-        
+ # A simple capsnet with 3 layers
+    def __init__(self, num_input, num_output, conv_output=256, conv_kernel=9, conv_stride=1, 
+                 primary_num=8, primary_size=32768, num_routing=3, output_size=16):
+
+        super().__init__(num_input, num_output)
+
+        # Layer 1 : Convolutional Layer
+        self.conv1 = nn.Conv2d(in_channels=num_input, out_channels=conv_output,
+                               padding=0, kernel_size=conv_kernel, stride=conv_stride)
+        self.relu = nn.ReLU(inplace=True)
+
+        # Primary Layer
+        # Conv2d with squash activation
+        self.primary = Capsule(in_unit=0, in_channel = conv_output, num_unit = primary_num,                               
+                               unit_size = primary_size, use_routing=False, num_routing=num_routing)
+
+        # Output layer
+        # Capsule layer with dynamic routing
+        self.output = Capsule(in_unit = primary_num, in_channel = primary_size, num_unit=1,
+                              unit_size = num_output, use_routing=True, num_routing=num_routing)
+
     def forward(self, x):
-        raise NotImplemented()
+        if self.is_cuda:
+            x = x.cuda()        
+        # Forward Pass
+        conv1 = self.conv1(x)
+        conv1 = self.relu(conv1)
+
+        primary_caps_out = self.primary(conv1)
+        output = self.output(primary_caps_out)
+        
+        output = output.squeeze().unsqueeze(0)
+
+        return output
+
     
     
         
