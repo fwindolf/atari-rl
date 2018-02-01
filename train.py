@@ -50,7 +50,7 @@ def train(args):
     if args.from_dataset:
         logger.info("Opening dataset")
         dataset = AGCDataSet(args.dataset_dir, args.game, history_len=args.agent_hist,
-                             screen=screen) 
+                             screen=screen, gamma=args.agent_gamma) 
         logger.info("Dataset created")
         logger.info("Creating dataloader")
         dataloader = DataLoader(dataset, batch_size=args.train_batch, num_workers=4)
@@ -153,7 +153,7 @@ def train(args):
         logger.info("Training finished")
         
     ### Benchmarking 
-    logger.info("Creating Baseline scores")
+    logger.info("Creating Benchmark scores")
     final_best, final_mean, final_dur = solver.play(agent, screen, args.train_playtime)
     logger.info("Benchmark with best score %d (Mean %d in %d frames)" % (final_best, final_mean, final_dur))
     
