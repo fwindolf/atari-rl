@@ -64,6 +64,9 @@ class AGCDataSet(Dataset):
         
         # 1. observation
         frame = self.__get_screen(game,trajectory, idx)
+        if frame is None:
+            # we cant prevent from breaking anyways
+            print(game, trajectory, idx)
         
         # get history_len frames before and at idx
         observation = np.zeros([self.history_len] + list(frame.shape), dtype=np.float32)
