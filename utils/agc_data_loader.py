@@ -14,7 +14,7 @@ class AGCDataSet(Dataset):
     Atari Grand Challenge dataset
     www.atarigrandchallenge.com/data
     """    
-    def __init__(self, datadir, game, history_len, transform=None, screen=None):
+    def __init__(self, datadir, game, history_len, gamma=0.8, transform=None, screen=None):
         self.data_set = dataset.AtariDataset(datadir)
         if game in ['spaceinvaders', 'mspacman', 'pinball']:
             self.game=game
@@ -26,12 +26,15 @@ class AGCDataSet(Dataset):
         self.action_meanings = self.screen.get_action_meaning() # mapping from idx to string
         
         self.transform = transform
-        self.trajectory = 0
         self.screens_dir = path.join(datadir, 'screens', self.game)
         self.screens = dict()
         self.screens[self.game] = dict()
-        self.screens[self.game][self.trajectory] = dict()
-        self.valid_trajectories= listdir(path.join(datadir,'screens', self.game))     
+        self.valid_trajectories= listdir(path.join(datadir,'screens', self.game))    
+        
+        self.__discount_rewards(self.game, gamma)
+        
+        self.trajectory = 0
+        self.next() # advance to random trajectory
     
     def __len__(self):
         return len(self.data_set.trajectories[self.game][self.trajectory])
@@ -98,22 +101,37 @@ class AGCDataSet(Dataset):
             # invalid action translates to noop in game
             action = 0        
         
-        sample = (obs, action, data['reward'], data['terminal'], next_obs)
+        sample = (obs, action, data['reward'], next_obs)
         
         if self.transform:
             sample = self.transform(sample)
         
         return sample
     
+    def __discount_rewards(self, game, gamma):
+        """
+        Iterate over all frames and discount the reward so learning is faster.
+        Modifies all trajectories in memory.
+        """ 
+        for trajectory in self.valid_trajectories:            
+            data = self.data_set.trajectories[game][int(trajectory)]
+            
+            next_reward = 0
+            # reverse through the frames and discount
+            for i in reversed(range(len(data))):
+                reward = data[i]['reward'] + gamma * next_reward
+                data[i]['reward'] = reward
+                next_reward = reward
+    
     def next(self):
         """
-        Switch to the next trajectory folder
+        Switch to a random trajectory folder
         """
-        self.screens[self.game][self.trajectory] = dict() # delete screens to save memory
-        self.trajectory += 1
-        if self.trajectory not in self.data_set.trajectories[self.game]:
-            self.trajectory = 0 # begin from the front
-            
+        # delete screens dict to save memory
+        self.screens[self.game][self.trajectory] = dict() 
+        self.trajectory = int(np.random.choice(self.valid_trajectories))
+        
+        # create new screens dict
         self.screens[self.game][self.trajectory] = dict() 
         
             
