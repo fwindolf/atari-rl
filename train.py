@@ -135,7 +135,7 @@ def train(args):
         
     ### Benchmarking 
     logger.info("Benchmarking for baseline scores")
-    intial_best, initial_mean, intial_dur = solver.play(agent, screen)
+    intial_best, initial_mean, intial_dur = solver.play(agent, screen, args.train_playtime)
     logger.info("Baseline with best score %d (Mean %d in %d frames)" % (intial_best, initial_mean, intial_dur))
     
     ### Training
