@@ -259,5 +259,32 @@ class CartPoleScreen(ScreenBase):
 class CartPoleBasic(ScreenBase):
     def __init__(self):
         super().__init__('CartPole-v0')
-            
+        
+
+class PinballScreen(ScreenBase):
+    def __init__(self, dim=(80,80), crop=(42,30,3,3), greyscale=True):
+        super().__init__('VideoPinball-v0')
+        
+        if greyscale:
+            self.env = GreyscaleWrapper(self.env)                 
+        if crop:
+            self.env = CropWrapper(self.env, crop)
+        if dim:
+            self.env = RescaleWrapper(self.env, dim)
+                
+        self.env = Uint8Wrapper(self.env)
+
+class PacmanScreen(ScreenBase):
+    def __init__(self, dim=(80,80), crop=(1,38,0,0), greyscale=True):
+        super().__init__('MsPacman-v0')
+        
+        if greyscale:
+            self.env = GreyscaleWrapper(self.env)                 
+        if crop:
+            self.env = CropWrapper(self.env, crop)
+        if dim:
+            self.env = RescaleWrapper(self.env, dim)
+                
+        self.env = Uint8Wrapper(self.env)
+ 
         
