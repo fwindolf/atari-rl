@@ -14,8 +14,8 @@ class AGCDataSet(Dataset):
     Atari Grand Challenge dataset
     www.atarigrandchallenge.com/data
     """    
-    def __init__(self, datadir, game, history_len, gamma=0.8, transform=None, screen=None, reuse=False):
-        self.data_set = dataset.AtariDataset(datadir)
+    def __init__(self, datadir, game, history_len, gamma=0.8, max_trajectories=1000, transform=None, screen=None, reuse=False):
+        self.data_set = dataset.AtariDataset(datadir, max_trajectories)
         if game in ['spaceinvaders', 'mspacman', 'pinball']:
             self.game=game
         else:

@@ -7,7 +7,7 @@ class AtariDataset():
     TRAJS_SUBDIR = 'trajectories'
     SCREENS_SUBDIR = 'screens'
 
-    def __init__(self, data_path):
+    def __init__(self, data_path, max_trajectories):
         
         '''
             Loads the dataset trajectories into memory. 
@@ -21,6 +21,11 @@ class AtariDataset():
         #check that the we have the trajs where expected
         assert path.exists(self.trajs_path)
         
+        if max_trajectories is None:
+            self.max_trajectories = -1 # [:-1]
+        else:
+            self.max_trajectories = max_trajectories 
+            
         self.trajectories = self.load_trajectories()
 
         # compute the stats after loading
@@ -40,14 +45,13 @@ class AtariDataset():
             self.stats[g]['stddev'] = np.std(final_scores)
             self.stats[g]['sem'] = st.sem(final_scores)
 
-
     def load_trajectories(self):
 
         trajectories = {}
         for game in listdir(self.trajs_path):
             trajectories[game] = {}
             game_dir = path.join(self.trajs_path, game)
-            for traj in listdir(game_dir):
+            for traj in listdir(game_dir)[:self.max_trajectories]:
                 curr_traj = []
                 with open(path.join(game_dir, traj)) as f:
                     for i,line in enumerate(f):
