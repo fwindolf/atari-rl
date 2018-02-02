@@ -14,7 +14,7 @@ class AGCDataSet(Dataset):
     Atari Grand Challenge dataset
     www.atarigrandchallenge.com/data
     """    
-    def __init__(self, datadir, game, history_len, gamma=0.8, transform=None, screen=None):
+    def __init__(self, datadir, game, history_len, gamma=0.8, transform=None, screen=None, reuse=False):
         self.data_set = dataset.AtariDataset(datadir)
         if game in ['spaceinvaders', 'mspacman', 'pinball']:
             self.game=game
@@ -22,13 +22,17 @@ class AGCDataSet(Dataset):
             print('Available games are spaceinvaders, mspacman, and pinball')
         
         self.history_len = history_len
+        self.reuse = reuse
         self.screen = screen
         self.action_meanings = self.screen.get_action_meaning() # mapping from idx to string
         
         self.transform = transform
         self.screens_dir = path.join(datadir, 'screens', self.game)
-        self.screens = dict()
-        self.screens[self.game] = dict()
+        
+        if self.reuse:
+            self.screens = dict()
+            self.screens[self.game] = dict()
+            
         self.valid_trajectories= listdir(path.join(datadir,'screens', self.game))    
         
         self.__discount_rewards(self.game, gamma)
@@ -41,7 +45,7 @@ class AGCDataSet(Dataset):
     
     def __get_screen(self, game, trajectory, idx):
         
-        if idx in self.screens[game][trajectory]:
+        if self.reuse and idx in self.screens[game][trajectory]:
             return self.screens[game][trajectory][idx]
         
         img_name = path.join(self.screens_dir, str(trajectory), str(idx) + '.png')
@@ -56,7 +60,8 @@ class AGCDataSet(Dataset):
             image = self.screen.output_float(image) # same format as from env
         
         # save in case of re-usage
-        self.screens[game][trajectory][idx] = image
+        if self.reuse:
+            self.screens[game][trajectory][idx] = image
         
         return image
     
@@ -93,7 +98,7 @@ class AGCDataSet(Dataset):
     
     def __getitem__(self,idx):        
         # get data for frame at idx
-        data = self.data_set.trajectories[self.game][self.trajectory][idx]         
+        data = self.data_set.trajectories[self.game][self.trajectory][idx] 
         obs, next_obs = self.__get_observations(self.game, self.trajectory, idx)
         
         # resolve action into [0, ...] and not as indexing the actions array 
@@ -131,11 +136,14 @@ class AGCDataSet(Dataset):
         Switch to a random trajectory folder
         """
         # delete screens dict to save memory
-        self.screens[self.game][self.trajectory] = dict() 
+        if self.reuse:
+            del self.screens[self.game][self.trajectory]
+            
         self.trajectory = int(np.random.choice(self.valid_trajectories))
         
         # create new screens dict
-        self.screens[self.game][self.trajectory] = dict() 
+        if self.reuse:
+            self.screens[self.game][self.trajectory] = dict() 
         
             
     def raw(self, idx):
