@@ -13,7 +13,7 @@ from torchvision import transforms, utils
 from datetime import datetime
 
 
-from utils.screen import SpaceInvaderScreen, CartPoleScreen, CartPoleBasic
+from utils.screen import SpaceInvaderScreen, CartPoleScreen, CartPoleBasic, PinballScreen, PacmanScreen
 from utils.agc_data_loader import AGCDataSet
 from utils.replay_buffer import SimpleReplayBuffer, ReplayBuffer
 
@@ -26,7 +26,7 @@ from train.solver import Solver
 
 
 # Choices
-games = ["spaceinvaders", "cartpole", "cartpole-basic"]
+games = ["spaceinvaders", "pinball", "mspacman", "cartpole", "cartpole-basic"]
 agents = ["dqn", "reinforce", "a3c", "pg"]
 models = ["cnn", "caps", "linear", "continuous", "discrete", "dueling", "a2c"]
 optimizers = ["rmsprop", "sgd", "adam"]
@@ -51,6 +51,12 @@ def train(args):
     if args.game == "spaceinvaders":
         screen = SpaceInvaderScreen()
         logger.info("SpaceInvaderScreen created")
+    elif args.game == "pinball":
+        screen = PinballScreen()
+        logger.info("PinballScreen created")
+    elif args.game == "mspacman":
+        screen = PacmanScreen()
+        logger.info("PacmanScreen created")
     elif args.game == "cartpole":
         logger.warn("CartPoleScreen needs an active/configured Display to work")
         screen = CartPoleScreen()
