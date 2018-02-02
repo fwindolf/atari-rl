@@ -111,22 +111,25 @@ class DQNAgent(AgentBase):
             batch_state, batch_next_state = batch_state.cuda(), batch_next_state.cuda()
             batch_action, batch_reward = batch_action.cuda(), batch_reward.cuda()
         
-        # current Q values are estimated by NN for all actions
-        current_q_values = self.model(batch_state).squeeze().gather(1, batch_action)
+        try:
+            # current Q values are estimated by NN for all actions
+            current_q_values = self.model(batch_state).squeeze().gather(1, batch_action)
 
-        # expected Q values are estimated from actions which gives maximum Q value
-        max_next_q_values = self.model(batch_next_state).squeeze().detach().max(1)[0]
-        expected_q_values = batch_reward + (self.gamma * max_next_q_values)    
+            # expected Q values are estimated from actions which gives maximum Q value
+            max_next_q_values = self.model(batch_next_state).squeeze().detach().max(1)[0]
+            expected_q_values = batch_reward + (self.gamma * max_next_q_values)    
 
-        # loss is measured from error between current and newly expected Q values
-        loss = self.loss(current_q_values, expected_q_values)
+            # loss is measured from error between current and newly expected Q values
+            loss = self.loss(current_q_values, expected_q_values)
 
-        # backpropagation of loss to NN
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        return loss.data.cpu().numpy()
+            # backpropagation of loss to NN
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+    
+            return loss.data.cpu().numpy()
+        except RuntimeError:
+            return 0
     
     def __encode_frame(self, frame):
         # if this is an image, make sure it is float 
