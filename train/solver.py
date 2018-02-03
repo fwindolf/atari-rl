@@ -120,7 +120,7 @@ class Solver():
         
         self.logger.info('Online Training finished')
         
-    def play(self, agent, screen, num_sequences=1, save=False):
+    def play(self, agent, screen, num_sequences=1, save=False, render=False):
         """
         Let the agent play to benchmark
         agent (agent)   : The agent that should be trained
@@ -134,7 +134,7 @@ class Solver():
         durations = []
 
         for i in range(num_sequences):
-            score, duration = agent.play(screen, save=save)
+            score, duration = agent.play(screen, save=save, render=render)
             scores.append(score)
             durations.append(duration)
 
