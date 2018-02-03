@@ -34,9 +34,13 @@ class Solver():
         self.data_loss_history = []
         
         
-    def __decay_learning_rate(self, learning_rate, epoch):
+    def __decay_learning_rate_half(self, learning_rate, epoch):
         """ Drop the learning rate by half every 10 epochs"""
         return learning_rate * np.power(0.5, np.floor((1 + epoch) / 100)) 
+    
+    def __decay_learning_rate(self, learning_rate, epoch):
+        """ Drop the learning rate by half every 10 epochs"""
+        return np.power(0.999, epoch) * learning_rate 
         
     def train_dataset(self, agent, screen, data_loader, num_epochs=10, learning_rate=0.01, decay=False):
         """
@@ -68,9 +72,12 @@ class Solver():
             
             # advance trajectory
             data_loader.dataset.next()
+            
             # decay learning rate
             if decay:
                 optim.learning_rate = self.__decay_learning_rate(learning_rate, epoch)
+            
+            del data
                 
         self.logger.info('Training from Dataset finished')
         
