@@ -24,7 +24,7 @@ class ReplayBuffer():
         self.next_idx = 0
         self.num_transitions = 0
        
-        self.frames     = None # dont know frame shape yet
+        self.frames  = None # dont know frame shape yet
         self.action  = np.empty([self.size], dtype=np.int32)
         self.reward  = np.empty([self.size], dtype=np.float32)
         self.done    = np.empty([self.size], dtype=np.bool)
@@ -33,82 +33,7 @@ class ReplayBuffer():
         """
         Return the numer of frames for each observation
         """
-        return self.history_len
-    
-    def initialize_dataset(self, num_replays, dataset):
-        """
-        Initilize the replay memory with <num_replays> experiences
-        
-        Uses random samples from the datatset to generate experiences
-        
-        num_replays (int): How many experiences should be generated
-        dataset          : The dataset from which sequences are taken
-        return           : The latest observation
-        """
-        
-        initialized = False
-        while(not initialized):
-            # sample the a random frame (= start of our sequence)
-            d_idx = np.random.randint(len(dataset))
-            
-            for t in range(self.history_len):
-                transition = dataset.raw(d_idx)
-                
-                obs = self.screen.output(transition.observation)
-                reward = transition.reward
-                done = transition.done
-                action = transition.action
-            
-                assert(obs.dtype.name == 'uint8') # uses less memory
-                
-                idx = self.store_frame(obs) 
-                self.store_effect(idx, action, reward, done)
-                
-                d_idx += 1 # next frame in that sequence
-        
-                if done or transition.next_observation is None:
-                    break # start new sequence
-                    
-                if self.num_transitions >= num_replays:
-                    initialized = True
-                    break
-                    
-        return obs
-    
-    def initialize_playing(self, num_replays, agent):
-        """
-        Initialize the replay memory with <num_replays> experiences
-        
-        Let the agent play to generate experiences
-        
-        num_replays (int): How many experiences should be generated
-        agent            : The agent that plays in the environment
-        return           : The latest observation
-        """
-        
-        initialized = False
-        while(not initialized):
-            # run sequences
-            obs = self.screen.reset()
-            idx = self.store_frame(obs)
-            
-            for t in range(self.history_len):                
-                action = agent.next_action(obs)
-                obs, reward, done, _ = self.screen.input(action)
-                
-                assert(obs.dtype.name == 'uint8') # uses less memory
-                
-                idx = self.store_frame(obs)
-                self.store_effect(idx, action, reward, done)  
-                
-                if done:
-                    break # start new sequence
-                    
-                if self.num_transitions >= num_replays:
-                    initialized = True
-                    break
-                
-        return obs          
+        return self.history_len    
         
     def __encode_observation(self, idx):
         """
