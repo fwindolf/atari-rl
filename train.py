@@ -38,11 +38,17 @@ def train(args):
     # Create Logging
     logger = logging.getLogger("Main")
     logger.setLevel(args.log_level.upper())
+    if args.log_file:
+        fh = logging.FileHandler(args.log_file)
+        formatter = logging.Formatter('[%(asctime)s] %(message)s')
+        fh.setFormatter(formatter)
+        fh.setLevel(args.log_level.upper())
+        logger.addHandler(fh)
     
     time = datetime.now()
     
-    logger.info("Time  : %s" % str(time))
-    logger.info("Params: %s" % str(args))
+    logger.debug("Time  : %s" % str(time))
+    logger.debug("Params: %s" % str(args))
 
     
     # Create Game Environment
@@ -196,7 +202,7 @@ def train(args):
         
     ### Benchmarking 
     logger.info("Creating Benchmark scores")
-    final_best, final_mean, final_dur = solver.play(agent, screen, args.train_playtime)
+    final_best, final_mean, final_dur = solver.play(agent, screen, args.train_playtime, render=True)
     logger.info("Benchmark with best score %d (Mean %d in %d frames)" % (final_best, final_mean, final_dur))
     
     # Save model
@@ -255,6 +261,9 @@ if __name__ == "__main__":
     # Misc
     parser.add_argument("-l", "--log-level", type=str, choices = log_levels,
                         default="INFO", help="The level used for logging")
+    parser.add_argument("-lf", "--log-file", type=str,
+                        help="The file used for logging")
+    
     
     # Hyperparameter Search
     parser.add_argument("-hs", "--hyperparameter-search",
