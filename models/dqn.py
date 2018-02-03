@@ -45,6 +45,13 @@ class DQN(ModelBase):
 
     
 class DQNLinear(ModelBase):
+    """
+    DQN linear network that produces Q-values
+
+    num_inputs (int)  : The number of channels of the input frame array
+    num_actions (int) : The number of actions in action_space
+    hidden_size (int) : The number of neurons in the hidden layer
+    """
     def __init__(self, num_inputs, num_actions, hidden_size):        
         num_inputs, num_actions = int(num_inputs), int(num_actions)        
         super().__init__(num_inputs, num_actions)
@@ -59,11 +66,22 @@ class DQNLinear(ModelBase):
         return x
 
 class DQNCapsNet(ModelBase):
- # A simple capsnet with 3 layers
-    def __init__(self, num_input, num_output, conv_output=256, conv_kernel=9, conv_stride=1, 
-                 primary_num=8, primary_size=32768, num_routing=3, output_size=16):
+    """
+    DQN Capsule network with 3 layers that produces Q-values
 
-        super().__init__(num_input, num_output)
+    num_inputs (int)  : The number of channels of the input frame array
+    num_actions (int) : The number of actions in action_space
+    conv_output (int) : The number of outputs from the convolutional network
+    conv_kernel (int) : The kernel size of the convolutional network
+    conv_stride (int) : The stride of the convolutional network
+    primary_num (int) : The number of primary capsules
+    primary_size (int): The unit size of the primary capsules
+    num_routing (int) : The number of routing iterations per epoch
+    """
+    def __init__(self, num_input, num_actions, conv_output=64, conv_kernel=9, conv_stride=1, 
+                 primary_num=16, primary_size=32768, num_routing=2):
+
+        super().__init__(num_input, num_actions)
 
         # Layer 1 : Convolutional Layer
         self.conv1 = nn.Conv2d(in_channels=num_input, out_channels=conv_output,
@@ -78,7 +96,7 @@ class DQNCapsNet(ModelBase):
         # Output layer
         # Capsule layer with dynamic routing
         self.output = Capsule(in_unit = primary_num, in_channel = primary_size, num_unit=1,
-                              unit_size = num_output, use_routing=True, num_routing=num_routing)
+                              unit_size = num_actions, use_routing=True, num_routing=num_routing)
 
     def forward(self, x):
         if self.is_cuda:
