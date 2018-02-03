@@ -7,7 +7,7 @@ class AtariDataset():
     TRAJS_SUBDIR = 'trajectories'
     SCREENS_SUBDIR = 'screens'
 
-    def __init__(self, data_path, max_trajectories):
+    def __init__(self, data_path, game, max_trajectories):
         
         '''
             Loads the dataset trajectories into memory. 
@@ -21,12 +21,12 @@ class AtariDataset():
         #check that the we have the trajs where expected
         assert path.exists(self.trajs_path)
         
-        if max_trajectories is None:
-            self.max_trajectories = -1 # [:-1]
-        else:
-            self.max_trajectories = max_trajectories 
-            
-        self.trajectories = self.load_trajectories()
+
+        self.max_trajectories = max_trajectories
+        self.valid_trajectories = []
+        self.game = game
+        
+        self.__load_trajectories()
 
         # compute the stats after loading
         self.stats = {}
@@ -45,13 +45,20 @@ class AtariDataset():
             self.stats[g]['stddev'] = np.std(final_scores)
             self.stats[g]['sem'] = st.sem(final_scores)
 
-    def load_trajectories(self):
-
-        trajectories = {}
+    def __load_trajectories(self):
+        self.trajectories = {}        
         for game in listdir(self.trajs_path):
-            trajectories[game] = {}
+            if game != self.game:
+                continue
+                
+            self.trajectories[game] = {}
             game_dir = path.join(self.trajs_path, game)
-            for traj in listdir(game_dir)[:self.max_trajectories]:
+            
+            trajectory_files = listdir(game_dir)
+            if self.max_trajectories is not None:
+                trajectory_files = np.random.choice(trajectory_files, self.max_trajectories)
+                
+            for traj in trajectory_files:
                 curr_traj = []
                 with open(path.join(game_dir, traj)) as f:
                     for i,line in enumerate(f):
@@ -68,9 +75,9 @@ class AtariDataset():
                             curr_trans['terminal'] = int(curr_data[3])
                             curr_trans['action']   = int(curr_data[4])
                             curr_traj.append(curr_trans)
-                trajectories[game][int(traj.split('.txt')[0])] = curr_traj
-        return trajectories
-                   
+                trajectory_num = int(traj.split('.txt')[0])
+                self.trajectories[game][trajectory_num] = curr_traj                   
+                self.valid_trajectories.append(trajectory_num)
 
     def compile_data(self, dataset_path, game, score_lb=0, score_ub=math.inf, max_nb_transitions=None):
 
