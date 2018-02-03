@@ -11,7 +11,6 @@ from torch.nn import SmoothL1Loss
 import torch.nn.functional as F
 from utils.replay_buffer import ReplayBuffer
 
-
 class DQNAgent(AgentBase):
     """A DQN agent implementation according to the DeepMind paper."""
     def __init__(self, screen, history_len=10, gamma=0.8, loss=SmoothL1Loss(), memory=None, model=None):
@@ -37,6 +36,7 @@ class DQNAgent(AgentBase):
 
         # for stepping
         self.steps = 0
+        self.state_buffer = None
         self.obs = None
         self.dur = 0 
     
@@ -133,16 +133,16 @@ class DQNAgent(AgentBase):
     
     def __encode_frame(self, frame):
         # if this is an image, make sure it is float 
-        if np.issubdtype(self.obs.dtype, np.integer):
-            self.obs = self.obs.astype(np.float32) / 255.
+        if np.issubdtype(frame.dtype, np.integer):
+            self.obs = frame.astype(np.float32) / 255.
         
         # create FloatTensor
-        if len(self.obs.shape) == 1:
-            state = torch.FloatTensor(self.obs)
-        elif len(self.obs.shape) == 2:
-            state = torch.FloatTensor(self.obs).unsqueeze(0)
+        if len(frame.shape) == 1:
+            state = torch.FloatTensor(frame)
+        elif len(frame.shape) == 2:
+            state = torch.FloatTensor(frame).unsqueeze(0)
         else:
-            state = torch.FloatTensor(self.obs)       
+            state = torch.FloatTensor(frame)       
             
         # return with batchsize 0
         return state.unsqueeze(0)
@@ -209,7 +209,7 @@ class DQNAgent(AgentBase):
             # run sequences (dont need epoch and max_epoch as random is True)
             self.step(screen, save=True, random=True)               
 
-    def play(self, screen, max_duration=10000, save=False):
+    def play(self, screen, max_duration=10000, save=False, render=False):
         """
         Play a sequence
         
@@ -224,6 +224,6 @@ class DQNAgent(AgentBase):
         # while game not lost/terminated
         done = False        
         while not done and self.dur < max_duration:            
-            _, _, _, done = self.step(screen, save)
+            _, _, _, done = self.step(screen, save, render)
             
         return self.rew, self.dur
