@@ -227,7 +227,7 @@ class ScreenBase:
         return self.env.output(frame)
     
 class SpaceInvaderScreen(ScreenBase):
-    def __init__(self, dim=(80,80), crop=(20, 10, 4, 16), greyscale=True):
+    def __init__(self, dim=(80,80), crop=(20, 10, 4, 4), greyscale=True):
         super().__init__('SpaceInvaders-v0')  
         
         if greyscale:
@@ -241,7 +241,7 @@ class SpaceInvaderScreen(ScreenBase):
         
         
 class CartPoleScreen(ScreenBase):
-    def __init__(self, dim=(80,80), crop=(85, 35, 60, 60), greyscale=True):
+    def __init__(self, dim=(40, 80), crop=(154, 80, 20, 20), greyscale=True):
         super().__init__('CartPole-v0')
         
         self.env = CartPoleScreenWrapper(self.env)

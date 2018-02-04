@@ -149,18 +149,18 @@ class SimpleReplayBuffer():
         self.next_idx = 0
         self.num_transitions = 0
         
-    def store_frame(self, frame):
-        self.memory[self.next_idx] = (frame.cpu())
-        return self.next_idx
+    def push(self, frame, action, reward, next_frame):
+        # move to cpu to save GPU mem        
+        if next_frame is not None:
+            next_frame = next_frame.cpu()
+            
+        self.memory[self.next_idx] = (frame.cpu(), action.cpu(), reward.cpu(), next_frame)
         
-    def store_effect(self, idx, action, reward, next_frame):
-        frame = self.memory[idx]
-        self.memory[idx] = (frame, action.cpu(), reward.cpu(), next_frame.cpu())
         self.num_transitions = min(self.num_transitions + 1, self.size)
         self.next_idx += 1
         if self.next_idx >= self.size:
             self.next_idx = 0
-        
+
     def can_sample(self, batchsize):
         return self.num_transitions >= batchsize
     

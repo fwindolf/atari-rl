@@ -36,8 +36,7 @@ class DQNAgent(AgentBase):
 
         # for stepping
         self.steps = 0
-        self.state_buffer = None
-        self.obs = None
+        self.done = True # start new sequence
         self.dur = 0 
     
     def __epsilon_linear(self, epsilon, epsilon_end=0.05, decay=2000):
@@ -99,32 +98,44 @@ class DQNAgent(AgentBase):
             batch_state = Variable(torch.cat(batch_state))
             batch_action = Variable(torch.cat(batch_action))
             batch_reward = Variable(torch.cat(batch_reward))
-            batch_next_state = Variable(torch.cat(batch_next_state))            
         else:
             batch_state, batch_action, batch_reward, batch_next_state = data
             batch_state = Variable(batch_state.float())
             batch_action = Variable(batch_action.long().unsqueeze(1))
             batch_reward = Variable(batch_reward.float())
-            batch_next_state = Variable(batch_next_state.float())
+            batch_next_state = batch_next_state.float()
+        
+        # Compute a mask of non-final states and concatenate the batch elements
+        non_final_mask = torch.ByteTensor(tuple(map(lambda s: s is not None, batch_next_state)))
+        non_final_next_states = Variable(torch.cat([s for s in batch_next_state if s is not None], dim=0), volatile=True)
+        next_state_values = Variable(torch.zeros(batchsize).float())
 
         if self.model.is_cuda:
-            batch_state, batch_next_state = batch_state.cuda(), batch_next_state.cuda()
-            batch_action, batch_reward = batch_action.cuda(), batch_reward.cuda()
+            batch_state, batch_action, batch_reward = batch_state.cuda(), batch_action.cuda(), batch_reward.cuda()
+            non_final_next_states, next_state_values = non_final_next_states.cuda(), next_state_values.cuda()
+            non_final_mask = non_final_mask.cuda()
         
         try:
-            # current Q values are estimated by NN for all actions
-            current_q_values = self.model(batch_state).squeeze().gather(1, batch_action)
+            # Compute Q(s_t, a) - the model computes Q(s_t), then we select the columns of actions taken
+            state_action_values = self.model(batch_state).gather(1, batch_action)
 
-            # expected Q values are estimated from actions which gives maximum Q value
-            max_next_q_values = self.model(batch_next_state).squeeze().detach().max(1)[0]
-            expected_q_values = batch_reward + (self.gamma * max_next_q_values)    
+            # Compute V(s_{t+1}) for all next states.   
+            if len(non_final_next_states.shape) == 3:
+                non_final_next_states = non_final_next_states.unsqueeze(1)
+            next_state_values[non_final_mask] = self.model(non_final_next_states).max(1)[0]
+            next_state_values.volatile = False
+            
+            # Compute the expected Q values
+            expected_state_action_values = (next_state_values * self.gamma) + batch_reward
 
             # loss is measured from error between current and newly expected Q values
-            loss = self.loss(current_q_values, expected_q_values)
+            loss = self.loss(state_action_values, expected_state_action_values)
 
-            # backpropagation of loss to NN
+            # Optimize the model
             optimizer.zero_grad()
             loss.backward()
+            for param in self.model.parameters():
+                param.grad.data.clamp_(-1, 1)
             optimizer.step()
     
             return loss.data.cpu().numpy()
@@ -134,17 +145,17 @@ class DQNAgent(AgentBase):
     def __encode_frame(self, frame):
         # if this is an image, make sure it is float 
         if np.issubdtype(frame.dtype, np.integer):
-            self.obs = frame.astype(np.float32) / 255.
-        
-        # create FloatTensor
+            frame = frame.astype(np.float32) / 255.
+    
         if len(frame.shape) == 1:
             state = torch.FloatTensor(frame)
         elif len(frame.shape) == 2:
             state = torch.FloatTensor(frame).unsqueeze(0)
-        else:
-            state = torch.FloatTensor(frame)       
-            
-        # return with batchsize 0
+        else:        
+            if frame.shape[0] > frame.shape[2]:
+                frame = frame.transpose(2, 0, 1)
+            state = torch.FloatTensor(frame)     
+
         return state.unsqueeze(0)
     
     def step(self, screen, save=False, random=False, render=False):
@@ -158,20 +169,25 @@ class DQNAgent(AgentBase):
             save (bool) : Write to replay memory
         """
         # Initialize
-        if self.obs is None:            
-            self.obs = screen.reset() # new sequence
+        if self.done:
+            self.current_frame = self.__encode_frame(self.screen.reset())
+            self.last_frame = self.current_frame            
+            self.state = self.current_frame - self.last_frame
+            
             self.rew = 0 # accumulated
             self.dur = 0 # accumulated
-
+            
         # next step in environment - model takes history into account
-        action = self.next_action(self.__encode_frame(self.obs), random=random)
+        action = self.next_action(self.state, random=random)
+        self.last_frame = self.current_frame
         
         # display screen if render is active
         if render:
             screen.render()
         
         # get new screen from environment
-        self.next_obs, reward, done = screen.input(action[0,0])
+        self.current_frame, reward, self.done = screen.input(action[0,0])
+        self.current_frame = self.__encode_frame(self.current_frame)
         
         # increase steps in case we really played
         if save and not random:
@@ -182,21 +198,18 @@ class DQNAgent(AgentBase):
         self.dur += 1
         
         # store negative reward when sequence ends
-        if done:
-            reward = -1
+        if not self.done:
+            self.next_state = self.current_frame - self.last_frame
+        else:
+            reward = -1.
+            self.next_state = None
             
         if save:          
-            idx = self.memory.store_frame(self.__encode_frame(self.obs))
-            self.memory.store_effect(idx, action, torch.FloatTensor([reward]), 
-                                     self.__encode_frame(self.next_obs))
+            self.memory.push(self.state, action, torch.FloatTensor([reward]), self.next_state)
         
-        self.obs = self.next_obs
+        self.state = self.next_state
         
-        # reset observation when done
-        if done:
-            self.obs = None
-        
-        return self.obs, reward, action, done
+        return self.state, reward, action, self.done
     
     def initialize(self, screen, num_frames=10000):
         """Randomly initialize the replay buffer.
