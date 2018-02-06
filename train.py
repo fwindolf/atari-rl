@@ -233,10 +233,10 @@ if __name__ == "__main__":
     parser.add_argument("-ai", "--agent-init", type=int,
                         default=0, help="How many frames the replay buffer is initialized with")
     parser.add_argument("-ah", "--agent-hist", type=int,
-                        default=4, help="The number of frames in an observation")
+                        default=1, help="The number of frames in an observation")
     parser.add_argument("-al", "--agent-loss", type=str, choices = losses,
                         default="huber", help="The loss used for optimizing the agents model")
-    parser.add_argument("-as", "--agent-simple", 
+    parser.add_argument("-as", "--agent-simple", default=True,
                         action="store_true", help="Use a simple replay memory")
     
     # Optional

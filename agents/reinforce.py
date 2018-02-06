@@ -11,7 +11,7 @@ import torch.optim as optim
 from agents.base import AgentBase
 from models.policy import DiscretePolicy, ContinuousPolicy
 
-pi = Variable(torch.FloatTensor([math.pi])).cuda()
+pi = Variable(torch.FloatTensor([math.pi]))
 
 
 def normal(x, mu, sigma_sq):
@@ -37,7 +37,7 @@ class REINFORCE(AgentBase):
             
         self.continuous = continuous
         
-        if torch.cuda.is_available:
+        if torch.cuda.is_available():
             self.model = self.model.cuda()
             
         self.gamma = gamma
@@ -65,7 +65,11 @@ class REINFORCE(AgentBase):
     
     
     def __select_discrete_action(self, state):
-        probs = self.model(Variable(state).cuda())
+        state = Variable(state)
+        if self.model.is_cuda:
+            state = state.cuda()
+            
+        probs = self.model(state)
         action = probs.multinomial().data
         prob = probs[:, action[0, 0]].view(1, -1)
         log_prob = prob.log()
@@ -73,12 +77,20 @@ class REINFORCE(AgentBase):
         return action[0], log_prob, entropy
 
     def __select_continuous_action(self, state):
-        mu, sigma_sq = self.model(Variable(state).cuda())
+        state = Variable(state)
+        if self.model.is_cuda:
+            state = state.cuda()
+            
+        mu, sigma_sq = self.model()
         sigma_sq = F.softplus(sigma_sq)
 
         eps = torch.randn(mu.size())
         # calculate the probability
-        action = (mu + sigma_sq.sqrt()*Variable(eps).cuda()).data
+        eps = Variable(eps)
+        if self.model.is_cuda:
+            eps = eps.cuda()
+            
+        action = (mu + sigma_sq.sqrt() * eps).data
         prob = normal(action, mu, sigma_sq)
         entropy = -0.5*((sigma_sq+2*pi.expand_as(sigma_sq)).log()+1)
 
@@ -150,7 +162,7 @@ class REINFORCE(AgentBase):
         
         return self.obs, reward, action, self.done
     
-    def play(self, screen, max_duration=10000, save=False):
+    def play(self, screen, max_duration=10000, save=False, render=False):
         """
         Play a sequence
         
@@ -165,7 +177,7 @@ class REINFORCE(AgentBase):
         # while game not lost/terminated
         done = False        
         while not done and self.dur < max_duration:            
-            _, _, _, done = self.step(screen, save)
+            _, _, _, done = self.step(screen, save=save, render=render)
             
         return self.rew, self.dur
 
@@ -189,8 +201,12 @@ class REINFORCE(AgentBase):
         # discount rewards
         for i in reversed(range(len(rewards))):
             R = self.gamma * R + rewards[i]
-            loss = loss - (log_probs[i] * (Variable(R).expand_as(
-                log_probs[i])).cuda()).sum() - (0.0001*entropies[i].cuda()).sum()
+            Rprime = Variable(R).expand_as(log_probs[i])
+            entropy = 0.0001*entropies[i]
+            if self.model.is_cuda:
+                Rprime, entropy = Rprime.cuda(), entropy.cuda()
+                
+            loss = loss - (log_probs[i] * Rprime).sum() - entropy.sum()
         
         # mean of rewards
         loss = loss / len(rewards)
